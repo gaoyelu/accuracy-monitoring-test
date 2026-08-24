@@ -1,0 +1,74 @@
+name: E2E Test
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "JSON array of runs-on labels"
+        type: string
+        default: '["ubuntu-latest"]'
+      tier:
+        description: "E2E test tier: lightweight, full, nightly"
+        type: string
+        default: "lightweight"
+      ref:
+        description: "Git ref to checkout; empty = event default"
+        type: string
+        default: ""
+      python-version:
+        type: string
+        default: "3.10"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E ${{ inputs.tier }}
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-py${{ inputs.python-version }}-
+
+      - name: Install project + test deps
+        run: |
+          pip install -e ".[test]"
+          pip install pytest pytest-asyncio httpx anyio pyyaml
+
+      - name: Run E2E tests (tier=${{ inputs.tier }})
+        env:
+          E2E_TIER: ${{ inputs.tier }}
+        run: |
+          set -o pipefail
+          python tests/e2e/run_e2e.py \
+            --tier "$E2E_TIER" \
+            --local \
+            2>&1 | tee e2e_run.log
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ inputs.tier }}-${{ contains(inputs.runner, 'arm') && 'arm64' || 'x86' }}
+          path: |
+            e2e_run.log
+            tests/e2e/reports/
+          if-no-files-found: ignore
+          retention-days: 7

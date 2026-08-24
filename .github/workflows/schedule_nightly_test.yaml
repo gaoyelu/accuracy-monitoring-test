@@ -1,0 +1,90 @@
+name: Nightly Test
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (${{ matrix.branch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, dev]
+    uses: ./.github/workflows/_lint.yaml
+    with:
+      ref: ${{ matrix.branch }}
+
+  unit-test:
+    name: Unit tests (${{ matrix.branch }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, dev]
+    uses: ./.github/workflows/_unit_test.yaml
+    with:
+      runner: ubuntu-latest
+      ref: ${{ matrix.branch }}
+
+  e2e-full:
+    name: E2E full (${{ matrix.branch }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, dev]
+    uses: ./.github/workflows/_e2e_test.yaml
+    with:
+      runner: '["ubuntu-latest"]'
+      tier: full
+      ref: ${{ matrix.branch }}
+
+  e2e-nightly:
+    name: E2E nightly (${{ matrix.branch }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, dev]
+    uses: ./.github/workflows/_e2e_test.yaml
+    with:
+      runner: '["ubuntu-latest"]'
+      tier: nightly
+      ref: ${{ matrix.branch }}
+
+  ci-gate:
+    name: Nightly Gate
+    needs: [lint, unit-test, e2e-full, e2e-nightly]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check required jobs
+        env:
+          LINT: ${{ needs.lint.result }}
+          UNIT: ${{ needs.unit-test.result }}
+          E2EF: ${{ needs.e2e-full.result }}
+          E2EN: ${{ needs.e2e-nightly.result }}
+        run: |
+          set -eu
+          echo "=== Nightly Gate Summary ==="
+          echo "lint:          ${LINT}"
+          echo "unit-test:     ${UNIT}"
+          echo "e2e-full:      ${E2EF}"
+          echo "e2e-nightly:   ${E2EN}"
+          for r in "${LINT}" "${UNIT}" "${E2EF}" "${E2EN}"; do
+            case "$r" in
+              success) ;;
+              *) echo "::error::Required job did not succeed: ${r}"; exit 1 ;;
+            esac
+          done
+          echo "=== Nightly Gate: PASSED ==="
