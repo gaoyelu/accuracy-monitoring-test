@@ -4,16 +4,17 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: "Git ref to checkout; empty = event default"
+        description: "Git ref to checkout (branch/tag/sha); empty = event default (PR merge ref / push ref)"
         type: string
         default: ""
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   lint:
-    name: Lint (ruff + format)
+    name: Lint (pre-commit + PR title)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -26,13 +27,37 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.x"
 
-      - name: Install lint deps
-        run: pip install ruff
+      - name: Validate PR title (conventional commits)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -eu
+          [ -n "$PR_TITLE" ] || { echo "::error::PR title is empty"; exit 1; }
+          pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|merge)(\([^)]+\))?: .+'
+          printf '%s\n' "$PR_TITLE" | grep -qE "$pattern" \
+            || { echo "::error::PR title must follow Conventional Commits: '<type>(<scope>): <desc>'"; \
+                 echo "::error::Allowed types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|merge"; \
+                 echo "::error::Got: $PR_TITLE"; exit 1; }
+          echo "PR title OK: $PR_TITLE"
 
-      - name: Ruff lint
-        run: ruff check anomaly_middleware/ tests/ --output-format=github
+      - name: Install pre-commit
+        run: pip install pre-commit
 
-      - name: Ruff format check
-        run: ruff format --check anomaly_middleware/ tests/
+      - name: Cache pre-commit envs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Register problem matchers
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/actionlint.json"
+          echo "::add-matcher::.github/workflows/matchers/shellcheck.json"
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure

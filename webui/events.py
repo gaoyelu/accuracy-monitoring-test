@@ -8,11 +8,12 @@
 
 模块持有每实例上一份快照；恢复轮询（resume）后首份快照仅作基线（reset）。
 """
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # ill_type 数字 → 字符串名（中间件 metrics.py: ILL_RARE..ILL_NAN）
 ILL_TYPE_NAMES: Dict[int, str] = {
@@ -109,9 +110,11 @@ class EventSynthesizer:
         return self._diff(prev, cur)
 
     def _diff(self, prev: Snapshot, cur: Snapshot) -> DeltaSummary:
-        d = DeltaSummary(requests=max(0, cur.requests - prev.requests),
-                         errors=max(0, cur.errors - prev.errors),
-                         duration=cur.duration)
+        d = DeltaSummary(
+            requests=max(0, cur.requests - prev.requests),
+            errors=max(0, cur.errors - prev.errors),
+            duration=cur.duration,
+        )
 
         for (ill, model, choice), cnt in cur.detected.items():
             p = prev.detected.get((ill, model, choice), 0)
@@ -122,8 +125,9 @@ class EventSynthesizer:
             for _ in range(delta):
                 eid = self._alloc_id()
                 d.events.append(
-                    AnomalyEvent(id=eid, ts=cur.ts, instance=cur.instance,
-                                 model=model, ill_type=name, choice_index=str(choice))
+                    AnomalyEvent(
+                        id=eid, ts=cur.ts, instance=cur.instance, model=model, ill_type=name, choice_index=str(choice)
+                    )
                 )
             d.anomalies_total += delta
             d.by_type[name] += delta

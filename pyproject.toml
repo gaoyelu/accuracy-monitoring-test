@@ -53,16 +53,17 @@ select = [
 ]
 ignore = [
     "UP006",
+    "UP007",
     "UP045",
     "UP037",
     "BLE001",
     "S110",
     "S112",
-    "RUF059",
     "RUF012",
     "RUF001",
     "RUF002",
     "RUF003",
+    "SIM102",
     "SIM118",
     "SIM103",
     "SIM113",

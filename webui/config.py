@@ -10,17 +10,15 @@
 - 监听 host/port 不再放配置（原 `server` 段从未生效）：统一由 uvicorn 启动命令配置。
 - 运行中热重载校验失败 → 保留上次有效配置并记警告，服务不中断。
 """
+
 from __future__ import annotations
 
-import copy
 import hashlib
 import logging
 import os
-import stat
-import time
 import urllib.parse
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import yaml
 
@@ -66,16 +64,14 @@ def _validate_ill_type(value: Optional[str], where: str) -> None:
     if value is None:
         return
     if value not in ILL_TYPES:
-        raise ConfigError(
-            f"{where}: 未知 ill_type {value!r}（可选 {ILL_TYPES} 或缺省=任一）"
-        )
+        raise ConfigError(f"{where}: 未知 ill_type {value!r}（可选 {ILL_TYPES} 或缺省=任一）")
 
 
 @dataclass(frozen=True)
 class AuthConfig:
     username: str
-    secret: str = ""            # 明文密码（当配置了 password 时）
-    password_hash: str = ""     # sha256 hex（当配置了 password_hash 时）
+    secret: str = ""  # 明文密码（当配置了 password 时）
+    password_hash: str = ""  # sha256 hex（当配置了 password_hash 时）
     token_ttl_hours: int = 24
 
     @classmethod
@@ -160,13 +156,9 @@ class StoreConfig:
         bucket = _positive_number(d, "trend_bucket_seconds", "store") if "trend_bucket_seconds" in d else 60
         horizon = _positive_number(d, "trend_horizon_seconds", "store") if "trend_horizon_seconds" in d else 86400
         if raw >= horizon:
-            raise ConfigError(
-                f"store: raw_trend_window_seconds({raw}) 必须小于 trend_horizon_seconds({horizon})"
-            )
+            raise ConfigError(f"store: raw_trend_window_seconds({raw}) 必须小于 trend_horizon_seconds({horizon})")
         if bucket > raw:
-            raise ConfigError(
-                f"store: trend_bucket_seconds({bucket}) 不能大于 raw_trend_window_seconds({raw})"
-            )
+            raise ConfigError(f"store: trend_bucket_seconds({bucket}) 不能大于 raw_trend_window_seconds({raw})")
         return cls(
             event_capacity=event,
             alert_capacity=alert,
@@ -197,7 +189,7 @@ class EmailConfig:
     smtp_port: int = 465
     smtp_user: str = ""
     smtp_password: str = ""
-    use_ssl: bool = True     # True=SMTP_SSL(465)，False=SMTP+STARTTLS(587)
+    use_ssl: bool = True  # True=SMTP_SSL(465)，False=SMTP+STARTTLS(587)
     from_addr: str = ""
     to_addrs: Tuple[str, ...] = ()
 
@@ -244,7 +236,7 @@ class AlertRule:
     name: str
     instance: str = "*"
     model: str = "*"
-    ill_type: Optional[str] = None   # None = 任一异常
+    ill_type: Optional[str] = None  # None = 任一异常
     window_seconds: int = 300
     threshold: int = 3
     webhook_url: str = ""
@@ -304,23 +296,23 @@ class WebUIConfig:
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "WebUIConfig":
         auth_dict = data.get("auth", {}) or {}
-        auth = AuthConfig.from_dict(auth_dict) if "username" in auth_dict or "password" in auth_dict or "password_hash" in auth_dict else AuthConfig(username="", secret="")
+        auth = (
+            AuthConfig.from_dict(auth_dict)
+            if "username" in auth_dict or "password" in auth_dict or "password_hash" in auth_dict
+            else AuthConfig(username="", secret="")
+        )
         poll = PollConfig.from_dict(data.get("poll", {}) or {})
         store = StoreConfig.from_dict(data.get("store", {}) or {})
         webhooks = WebhooksConfig.from_dict(data.get("webhooks", {}) or {})
         email = EmailConfig.from_dict(data.get("email", {}) or {})
 
-        instances = tuple(
-            InstanceConfig.from_dict(d, "instances") for d in (data.get("instances", []) or [])
-        )
+        instances = tuple(InstanceConfig.from_dict(d, "instances") for d in (data.get("instances", []) or []))
         names = [i.name for i in instances]
         if len(names) != len(set(names)):
             dupes = sorted({n for n in names if names.count(n) > 1})
             raise ConfigError(f"instances: 实例名冲突，重复: {dupes}")
 
-        alerts = tuple(
-            AlertRule.from_dict(d, "alerts") for d in (data.get("alerts", []) or [])
-        )
+        alerts = tuple(AlertRule.from_dict(d, "alerts") for d in (data.get("alerts", []) or []))
         rule_names = [r.name for r in alerts]
         if len(rule_names) != len(set(rule_names)):
             dupes = sorted({n for n in rule_names if rule_names.count(n) > 1})
@@ -339,7 +331,7 @@ class WebUIConfig:
     @classmethod
     def from_yaml(cls, path: str) -> "WebUIConfig":
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
         except yaml.YAMLError as exc:
             raise ConfigError(f"{path}: yaml 语法错误: {exc}") from exc
@@ -410,7 +402,7 @@ class ConfigManager:
 
         调用方保证新列表已通过校验（校验先于写盘，写盘后应用必成功）。
         """
-        with open(self.path, "r", encoding="utf-8") as f:
+        with open(self.path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         if not isinstance(data, dict):
             data = {}

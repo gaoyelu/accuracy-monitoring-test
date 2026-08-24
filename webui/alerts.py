@@ -9,6 +9,7 @@
   飞书 / Lark、钉钉、企业微信（WeChat Work）；其余 URL 走通用 JSON。
 - 邮件：配置 `email` 段（SMTP）后，每个告警同时发送邮件。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -114,9 +115,7 @@ def webhook_payload(url: str, alert: "Alert") -> Dict[str, Any]:
 
 def email_subject(alert: "Alert") -> str:
     return (
-        "【推理精度异常监控】"
-        f"{alert.rule_name} · {alert.instance} · "
-        f"{ILL_LABELS.get(alert.ill_type, alert.ill_type)}"
+        f"【推理精度异常监控】{alert.rule_name} · {alert.instance} · {ILL_LABELS.get(alert.ill_type, alert.ill_type)}"
     )
 
 
@@ -145,7 +144,7 @@ def _smtp_send_sync(email_cfg: EmailConfig, subject: str, body: str) -> None:
     finally:
         try:
             server.quit()
-        except Exception:  # noqa: BLE001 —— 关闭失败忽略
+        except Exception:
             pass
 
 
@@ -263,17 +262,15 @@ class AlertEngine:
     async def _safe_send(self, url: str, payload: Dict[str, Any]) -> None:
         try:
             await self._sender(url, payload)
-        except Exception as exc:  # noqa: BLE001 —— 发送失败绝不影响主流程
+        except Exception as exc:
             logger.error("webhook 发送失败 %s: %s", url, exc)
 
     async def _safe_send_email(self, alert: Alert) -> None:
         cfg = self._email_cfg
         try:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                None, _smtp_send_sync, cfg, email_subject(alert), alert_text(alert)
-            )
-        except Exception as exc:  # noqa: BLE001 —— 邮件失败绝不影响主流程
+            await loop.run_in_executor(None, _smtp_send_sync, cfg, email_subject(alert), alert_text(alert))
+        except Exception as exc:
             logger.error("邮件告警发送失败: %s", exc)
 
     @staticmethod

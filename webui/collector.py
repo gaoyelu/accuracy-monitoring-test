@@ -6,6 +6,7 @@
 - 失败/超时/非 200 → 实例标记离线，快照保留上次值，不影响其他实例。
 - 计数器回绕/实例重启（值变小）→ 事件合成忽略负增量。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -13,7 +14,6 @@ import logging
 import math
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from . import events as events_mod
 from .alerts import AlertEngine
 from .config import ILL_TYPES, PollConfig
 from .events import DeltaSummary, EventSynthesizer, Snapshot
@@ -153,9 +153,9 @@ def parse_metrics_text(text: str) -> Dict[str, Any]:
                             logger.warning("跳过损坏的 gauge 序列 %s: %s", s.name, exc)
                 elif name == DURATION_METRIC:
                     hist_samples.extend(family.samples)
-            except Exception as exc:  # noqa: BLE001 —— 个别 family 损坏不拖垮整体
+            except Exception as exc:
                 logger.warning("跳过指标 family %s: %s", getattr(family, "name", "?"), exc)
-    except Exception as exc:  # noqa: BLE001 —— 整体文本不可解析
+    except Exception as exc:
         raise MetricsParseError(f"Prometheus 文本解析失败: {exc}") from exc
 
     hist_stats = _histogram_stats(hist_samples) if hist_samples else None
@@ -262,7 +262,7 @@ class Collector:
                 await self._poll_once(inst)
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:  # noqa: BLE001 —— 轮询失败绝不抛到主流程
+            except Exception as exc:
                 logger.warning("实例 %s 轮询失败: %s", inst.name, exc)
                 self._store.set_state(inst.name, "offline")
             await asyncio.sleep(self._poll.interval_seconds)

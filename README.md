@@ -124,4 +124,3 @@ repetition:         # 重复检测
 
 `ill_type` 取值：`0`=normal, `1`=rare_character, `2`=garbled, `3`=repetition, `4`=nan_value。
 `model` 标签来自请求体 `model` 字段，缺失用 `"unknown"`。
-

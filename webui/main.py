@@ -5,6 +5,7 @@
 - 认证：除 /api/login 与静态页面外，均需 `Authorization: Bearer <token>`。
 - 动态配置段热重载由后台任务轮询 yaml mtime 触发；所有变更经 asyncio.Lock 串行。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,9 +24,9 @@ from .auth import AuthManager
 from .collector import Collector
 from .config import (
     CONFIG_PATH_DEFAULT,
+    ILL_TYPES,
     ConfigError,
     ConfigManager,
-    ILL_TYPES,
     InstanceConfig,
     WebUIConfig,
 )
@@ -75,7 +76,7 @@ def _resolve_config_path(override: Optional[str] = None) -> str:
 def _bearer_token(request: Request) -> str:
     header = request.headers.get("Authorization", "")
     if header.startswith("Bearer "):
-        return header[len("Bearer "):].strip()
+        return header[len("Bearer ") :].strip()
     return ""
 
 
@@ -155,7 +156,7 @@ class AppContext:
         """写盘 + 重读 + 最小化应用；失败抛 HTTPException 500（内存配置不动）。"""
         try:
             self.cm.write_instances(new_instances)
-        except Exception as exc:  # noqa: BLE001 —— IO/yaml 错误统一 500
+        except Exception as exc:
             logger.error("写 yaml 失败: %s", exc)
             raise HTTPException(status_code=500, detail="写配置文件失败")
         try:
@@ -173,11 +174,7 @@ class AppContext:
         st = self.store.instance_stats(inst.name)
         if st is not None:
             state = st.state
-            last_event = (
-                {"ill_type": st.last_event[0], "ts": st.last_event[1]}
-                if st.last_event
-                else None
-            )
+            last_event = {"ill_type": st.last_event[0], "ts": st.last_event[1]} if st.last_event else None
             by_type = dict(st.by_type)
             by_model = dict(st.by_model)
             models = sorted(by_model.keys())
@@ -230,27 +227,19 @@ def create_app(config_path: Optional[str] = None) -> FastAPI:
     # 查询端点（短轮询，需登录）
     # ------------------------------------------------------------------ #
     @app.get("/api/summary", tags=["query"])
-    async def api_summary(
-        request: Request, user: str = Depends(require_user)
-    ) -> Dict[str, Any]:
+    async def api_summary(request: Request, user: str = Depends(require_user)) -> Dict[str, Any]:
         c: AppContext = request.app.state.ctx
         data = c.store.summary()
         data["user"] = user
         return data
 
     @app.get("/api/instances", tags=["query"])
-    async def api_instances(
-        request: Request, user: str = Depends(require_user)
-    ) -> List[Dict[str, Any]]:
+    async def api_instances(request: Request, user: str = Depends(require_user)) -> List[Dict[str, Any]]:
         c: AppContext = request.app.state.ctx
-        return [
-            c.instance_response(i) for i in c.cm.last_config.instances
-        ]
+        return [c.instance_response(i) for i in c.cm.last_config.instances]
 
     @app.get("/api/events", tags=["query"])
-    async def api_events(
-        request: Request, limit: int = 50, user: str = Depends(require_user)
-    ) -> List[Dict[str, Any]]:
+    async def api_events(request: Request, limit: int = 50, user: str = Depends(require_user)) -> List[Dict[str, Any]]:
         c: AppContext = request.app.state.ctx
         n = max(0, min(limit, 1000))
         return [
@@ -266,9 +255,7 @@ def create_app(config_path: Optional[str] = None) -> FastAPI:
         ]
 
     @app.get("/api/alerts", tags=["query"])
-    async def api_alerts(
-        request: Request, limit: int = 50, user: str = Depends(require_user)
-    ) -> List[Dict[str, Any]]:
+    async def api_alerts(request: Request, limit: int = 50, user: str = Depends(require_user)) -> List[Dict[str, Any]]:
         c: AppContext = request.app.state.ctx
         n = max(0, min(limit, 1000))
         return [a.to_dict() for a in c.store.recent_alerts(n)]
@@ -290,9 +277,7 @@ def create_app(config_path: Optional[str] = None) -> FastAPI:
         return {"window": window, "window_seconds": secs, "points": points}
 
     @app.get("/api/instances/{name}/summary", tags=["query"])
-    async def api_instance_summary(
-        name: str, request: Request, user: str = Depends(require_user)
-    ) -> Dict[str, Any]:
+    async def api_instance_summary(name: str, request: Request, user: str = Depends(require_user)) -> Dict[str, Any]:
         c: AppContext = request.app.state.ctx
         cur = c.current_instances()
         if name not in cur:
@@ -345,29 +330,21 @@ def create_app(config_path: Optional[str] = None) -> FastAPI:
     # 实例管理端点（§8）
     # ------------------------------------------------------------------ #
     @app.post("/api/instances", status_code=201, tags=["admin"])
-    async def add_instance(
-        body: InstanceCreate, request: Request, user: str = Depends(require_user)
-    ) -> Dict[str, Any]:
+    async def add_instance(body: InstanceCreate, request: Request, user: str = Depends(require_user)) -> Dict[str, Any]:
         c: AppContext = request.app.state.ctx
         try:
-            inst = InstanceConfig.from_dict(
-                {"name": body.name, "url": body.url}, "instances"
-            )
+            inst = InstanceConfig.from_dict({"name": body.name, "url": body.url}, "instances")
         except ConfigError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         async with c.lock:
             if inst.name in c.current_instances():
-                raise HTTPException(
-                    status_code=409, detail=f"实例 {inst.name} 已存在"
-                )
+                raise HTTPException(status_code=409, detail=f"实例 {inst.name} 已存在")
             new_list = [i for i in c.cm.last_config.instances] + [inst]
             c._commit_instances(new_list)
             return c.instance_response(inst)
 
     @app.delete("/api/instances/{name}", status_code=204, tags=["admin"])
-    async def delete_instance(
-        name: str, request: Request, user: str = Depends(require_user)
-    ) -> Response:
+    async def delete_instance(name: str, request: Request, user: str = Depends(require_user)) -> Response:
         c: AppContext = request.app.state.ctx
         async with c.lock:
             if name not in c.current_instances():
@@ -377,9 +354,7 @@ def create_app(config_path: Optional[str] = None) -> FastAPI:
             return Response(status_code=204)
 
     @app.post("/api/instances/{name}/pause", tags=["admin"])
-    async def pause_instance(
-        name: str, request: Request, user: str = Depends(require_user)
-    ) -> Dict[str, Any]:
+    async def pause_instance(name: str, request: Request, user: str = Depends(require_user)) -> Dict[str, Any]:
         c: AppContext = request.app.state.ctx
         async with c.lock:
             cur = c.current_instances()
@@ -394,9 +369,7 @@ def create_app(config_path: Optional[str] = None) -> FastAPI:
             return c.instance_response(target)
 
     @app.post("/api/instances/{name}/resume", tags=["admin"])
-    async def resume_instance(
-        name: str, request: Request, user: str = Depends(require_user)
-    ) -> Dict[str, Any]:
+    async def resume_instance(name: str, request: Request, user: str = Depends(require_user)) -> Dict[str, Any]:
         c: AppContext = request.app.state.ctx
         async with c.lock:
             cur = c.current_instances()

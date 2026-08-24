@@ -67,7 +67,7 @@
   `top_logprobs[]` 键回退 `token_id:NNN`（保证 topk logprob 数据不丢失）；未触发例外时 `tokens[]` 项为 null、`top_logprobs[]` 为 null。
 - completions 客户端设置`logprobs=3`、`return_tokens_as_token_ids=True` →  截断 `top_logprobs`，取前 3 项数据，且每项原样保留 `token_id:`。
 - chat 和 completions 客户端设置`logprobs=10`，而推理服务环境变量设置top-logprobs 数 N=4  → body 内 top-logprobs 的数量取二者最大值 10，推理请求输出的每个 token 有 10 项数据，送至检测截断前 4 项数据，返回给客户端 10 项数据。
-- chat 和 completions 请求下，客户端请求设置 `n=4` → 循环处理 4 份候选结果，客户端输出格式按上述方法验收 
+- chat 和 completions 请求下，客户端请求设置 `n=4` → 循环处理 4 份候选结果，客户端输出格式按上述方法验收
 
 
 ### 2.4 流式安全转发
