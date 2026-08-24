@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         branch: [main, dev]
-    uses: ./.github/workflows/_lint.yaml
+    uses: ./.github/workflows/_pre_commit.yaml
     with:
       ref: ${{ matrix.branch }}
 
