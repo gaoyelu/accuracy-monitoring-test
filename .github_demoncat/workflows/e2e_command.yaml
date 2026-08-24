@@ -1,0 +1,103 @@
+name: E2E Command
+
+# 评论 /e2e → 校验评论者权限(PR author 或 triage+)→ 直接调 _e2e_test.yaml 可复用 workflow
+# 在 NPU runner 跑 Full 套件(ref = PR head sha)。
+#
+# 为何直接调而非加标签触发 pr_test:
+#   GITHUB_TOKEN 加标签会被 GitHub 抑制(GITHUB_TOKEN 触发的事件不创建新 workflow run)
+#   → pr_test labeled 不会跑;PAT 加标签虽不被抑制,但需 PAT secret(权限易出错,且 secret 维护负担)。
+#   直接 workflow_call _e2e_test 是同一 run 的一部分,不受抑制,GITHUB_TOKEN 即可,无需 PAT。
+#
+# fork PR 安全:_e2e_test 的 checkout 已加 allow-unsafe-pr-checkout(issue_comment 上下文 checkout
+#   fork PR head 触发 pwn 护栏);_e2e_test 的 GITHUB_TOKEN 为 contents: read(只读),
+#   fork 代码以 root 跑 NPU 是 vllm 式已接受风险。
+# 关键:issue_comment workflow 只从【默认分支】读——本文件须在源仓库默认分支上才被 /e2e 触发。
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write   # 回写评论(拒绝/触发告知)
+  issues: read
+
+concurrency:
+  group: e2e-command-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: ${{ github.event.issue.pull_request != null && github.event.comment.user.type == 'User' && startsWith(github.event.comment.body, '/e2e') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+    steps:
+      - name: Resolve PR (number + head sha + author)
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.issue.number }}
+        run: |
+          set -eu
+          PR_JSON=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}")
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+          PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login')
+          {
+            echo "pr_number=${PR_NUM}"
+            echo "head_sha=${HEAD_SHA}"
+            echo "pr_author=${PR_AUTHOR}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check commenter authorization
+        id: auth
+        env:
+          ACTOR: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
+          ASSOC: ${{ github.event.comment.author_association }}
+        run: |
+          set -eu
+          # PR author(大小写不敏感)或 OWNER/MEMBER/COLLABORATOR(triage+)可触发。
+          # 用 webhook 自带 author_association,不调 gh api collaborators/permission(需 admin,误拒 maintainer)。
+          if [ "${ACTOR,,}" = "${PR_AUTHOR,,}" ]; then
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR)
+              echo "authorized=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "authorized=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Reject unauthorized
+        if: always() && steps.auth.outputs.authorized != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e 拒绝 — 仅 PR 作者或 triage+ 权限可触发。"
+          exit 0
+
+      - name: Notify trigger
+        if: always() && steps.auth.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e 已触发：Full 套件即将在 NPU runner 启动(直接调 _e2e_test,ref=PR head,无需 PAT/标签)。"
+
+  e2e-full:
+    needs: resolve
+    if: always() && needs.resolve.outputs.authorized == 'true'
+    uses: ./.github/workflows/_e2e_test.yaml
+    with:
+      runner: '["self-hosted", "npu-server", "ARM64"]'
+      mark: ""
+      run-as-root: true
+      ref: ${{ needs.resolve.outputs.head_sha }}

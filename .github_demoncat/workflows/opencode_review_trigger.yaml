@@ -1,0 +1,54 @@
+name: opencode-review-trigger
+
+# PR 自动触发 opencode review(绕开 fork PR secret 扣留):
+# fork PR 的 pull_request 事件会扣留 OPENCODE_API_KEY → opencode 直接跑 pull_request 会失败。
+# 故本 workflow 在 PR opened/synchronize/reopened 时(用 pull_request_target,secret 不扣留)
+# 自动发一条 /opencode 评论 → 触发 opencode-review.yaml(issue_comment 事件,secret 不扣留)→ opencode 跑通。
+#
+# 关键:评论必须用 PAT(GH_PAT)发,不能用 GITHUB_TOKEN——
+# GITHUB_TOKEN 发的评论由 github-actions[bot] 发起,GitHub 抑制其触发的 issue_comment 事件
+# 不创建新 workflow run(防循环)→ opencode-review 不会被触发(同 e2e_command labeled 问题)。
+# PAT(人工 token)发的评论由真实用户发起 → 触发 issue_comment → opencode-review 跑。
+# 前置:源仓 Settings → Secrets → Actions 添加 GH_PAT(PAT,public_repo 权限)。
+#
+# 用 pull_request_target(非 pull_request):fork PR 也能评论(secret 不扣留);
+# 不 checkout fork 代码 → 无 pwn 风险。
+# 无回路:opencode 的 review 评论不含 /opencode,不会再次触发;本 workflow 只听 PR 事件不听评论。
+#
+# 去重:发 primer 前查该 head SHA 上是否已有 opencode-review check-run 处于
+# in_progress(正在跑,避免并发重复)或 completed+success(已成功,避免重复检视);
+# completed+failure 不跳过 → 失败可重检。reopen 不带 push(同 SHA)且已成功 → 不再重复检视。
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write   # 发评论
+  checks: read          # 查 check-run 做 SHA 去重
+
+concurrency:
+  group: opencode-review-trigger-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post /opencode comment (dedup, skip if SHA already reviewed or in-progress)
+        env:
+          # PAT(非 GITHUB_TOKEN):GITHUB_TOKEN 评论被 GitHub 抑制不触发 issue_comment
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          set -eu
+          ALREADY=$(gh api "/repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" --jq \
+            '[.check_runs[]? | select(.name == "opencode-review" and ((.status == "in_progress") or (.status == "completed" and .conclusion == "success")))] | length')
+          if [ "$ALREADY" -gt 0 ]; then
+            echo "head sha ${SHA} 上已有 in_progress 或成功的 opencode-review,跳过 primer(避免重复检视)。"
+            exit 0
+          fi
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/opencode 自动审视本 PR(由 opencode-review-trigger 在 opened/synchronize/reopened 触发)"

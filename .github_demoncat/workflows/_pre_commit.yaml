@@ -1,4 +1,4 @@
-name: Lint
+name: Pre-Commit
 
 on:
   workflow_call:
@@ -13,19 +13,18 @@ permissions:
   pull-requests: read
 
 jobs:
-  lint:
-    name: Lint (pre-commit + PR title)
+  pre-commit:
+    name: pre-commit (lint / format / PR title)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           ref: ${{ inputs.ref }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
@@ -43,11 +42,14 @@ jobs:
                  echo "::error::Got: $PR_TITLE"; exit 1; }
           echo "PR title OK: $PR_TITLE"
 
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Install pre-commit + system tools
+        run: |
+          pip install pre-commit
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format shellcheck
 
       - name: Cache pre-commit envs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -57,6 +59,7 @@ jobs:
       - name: Register problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/actionlint.json"
+          echo "::add-matcher::.github/workflows/matchers/markdownlint.json"
           echo "::add-matcher::.github/workflows/matchers/shellcheck.json"
 
       - name: Run pre-commit
