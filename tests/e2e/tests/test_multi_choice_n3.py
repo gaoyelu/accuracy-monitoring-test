@@ -10,7 +10,12 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.nightly
 @pytest.mark.inject
 async def test_multi_choice_n3(
-    vllm_service_b, injector, http_client, metrics_client, served_name, anomaly_data,
+    vllm_service_b,
+    injector,
+    http_client,
+    metrics_client,
+    served_name,
+    anomaly_data,
 ):
     if not injector.health_check():
         pytest.skip("injector infrastructure not available")
@@ -73,7 +78,5 @@ async def test_multi_choice_n3(
     )
     assert after_c2 - before_c2 == 0
 
-    gauge = metrics_client.get_gauge(
-        f'vllm_anomaly_last_rare_character{{model="{served_name}"}}'
-    )
+    gauge = metrics_client.get_gauge(f'vllm_anomaly_last_rare_character{{model="{served_name}"}}')
     assert gauge == 1

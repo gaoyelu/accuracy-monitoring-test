@@ -1,9 +1,11 @@
 """SSEStreamProcessor 单元测试：跨块重组 / [DONE] / keepalive / 累积 / 每块恢复（spec §2.4）。"""
+
 from __future__ import annotations
 
 import json
 
 from _helpers import chat_stream_chunk, chat_top_entry, completions_stream_chunk
+
 from anomaly_middleware.extractor import OriginalParams, SSEStreamProcessor
 
 NI = "你"
@@ -27,9 +29,7 @@ def test_keepalive_passthrough():
 
 
 def test_cross_chunk_reassembly():
-    sse = SSEStreamProcessor(
-        True, OriginalParams(True, True, 3, False, 1, False), 20
-    )
+    sse = SSEStreamProcessor(True, OriginalParams(True, True, 3, False, 1, False), 20)
     e = chat_top_entry(100, NI, -0.1, n_top=20)
     chunk = chat_stream_chunk("glm-4-7", e, delta_text=NI)
     raw = _sse_bytes(chunk)
@@ -74,7 +74,7 @@ def test_streaming_truncate_to_client_m():
     e = chat_top_entry(100, NI, -0.1, n_top=20)
     out = sse.feed(_sse_bytes(chat_stream_chunk("glm-4-7", e, delta_text=NI)))
     # 恢复：top_logprobs 截断到 3，token 为解码文本
-    parsed = json.loads(out[len(b"data: "):].split(b"\n")[0])
+    parsed = json.loads(out[len(b"data: ") :].split(b"\n")[0])
     entry = parsed["choices"][0]["logprobs"]["content"][0]
     assert entry["token"] == NI
     assert len(entry["top_logprobs"]) == 3
@@ -88,9 +88,9 @@ def test_streaming_detection_data_keeps_full_topk_not_client_m():
     e1 = chat_top_entry(100, NI, -0.1, n_top=20)
     e2 = chat_top_entry(200, HAO, -0.2, n_top=20)
     out1 = sse.feed(_sse_bytes(chat_stream_chunk("glm-4-7", e1, delta_text=NI)))
-    out2 = sse.feed(_sse_bytes(chat_stream_chunk("glm-4-7", e2, delta_text=HAO)))
+    sse.feed(_sse_bytes(chat_stream_chunk("glm-4-7", e2, delta_text=HAO)))
     # 客户端可见仍按 M=2 恢复（token 解码为文本，top_logprobs 截到 2）
-    parsed = json.loads(out1[len(b"data: "):].split(b"\n")[0])
+    parsed = json.loads(out1[len(b"data: ") :].split(b"\n")[0])
     entry = parsed["choices"][0]["logprobs"]["content"][0]
     assert entry["token"] == NI
     assert len(entry["top_logprobs"]) == 2
@@ -146,9 +146,7 @@ def test_chat_streaming_n3_keeps_choice_separate():
 
 
 def test_crlf_compat():
-    sse = SSEStreamProcessor(
-        True, OriginalParams(True, True, 3, False, 1, False), 20
-    )
+    sse = SSEStreamProcessor(True, OriginalParams(True, True, 3, False, 1, False), 20)
     e = chat_top_entry(100, NI, -0.1, n_top=20)
     raw = b"data: " + json.dumps(chat_stream_chunk("glm-4-7", e)).encode() + b"\r\n\r\n"
     out = sse.feed(raw)
@@ -172,9 +170,7 @@ def test_completions_streaming_accumulation():
 
 def test_flush_tail_without_done():
     """流式无 [DONE] 即断：flush 排空残余，按已累积数据检测。"""
-    sse = SSEStreamProcessor(
-        True, OriginalParams(True, None, None, False, 1, False), 20
-    )
+    sse = SSEStreamProcessor(True, OriginalParams(True, None, None, False, 1, False), 20)
     e = chat_top_entry(100, NI, -0.1, n_top=20)
     raw = _sse_bytes(chat_stream_chunk("glm-4-7", e, delta_text=NI))
     # 不含尾部 \n\n
@@ -187,19 +183,15 @@ def test_flush_tail_without_done():
 
 
 def test_non_json_data_passthrough():
-    sse = SSEStreamProcessor(
-        True, OriginalParams(True, None, None, False, 1, False), 20
-    )
+    sse = SSEStreamProcessor(True, OriginalParams(True, None, None, False, 1, False), 20)
     out = sse.feed(b"data: not-json\n\n")
     assert out == b"data: not-json\n\n"  # 非 JSON 原样透传
 
 
 def test_multi_data_line_event_passthrough():
     """多 data: 行（payload 非法 JSON）-> 原样透传（spec §2.4 不改非结构化事件）。"""
-    sse = SSEStreamProcessor(
-        True, OriginalParams(True, None, None, False, 1, False), 20
-    )
-    raw = b"data: {\"choices\": []}\ndata: tail\n\n"
+    sse = SSEStreamProcessor(True, OriginalParams(True, None, None, False, 1, False), 20)
+    raw = b'data: {"choices": []}\ndata: tail\n\n'
     out = sse.feed(raw)
     assert out == raw
 
@@ -210,8 +202,7 @@ def test_extra_event_fields_preserved():
     sse = SSEStreamProcessor(True, orig, 20)
     e = chat_top_entry(100, NI, -0.1, n_top=20)
     chunk = chat_stream_chunk("glm-4-7", e, delta_text=NI)
-    raw = (b"id: 7\nevent: message\ndata: " +
-           json.dumps(chunk, ensure_ascii=False).encode() + b"\n\n")
+    raw = b"id: 7\nevent: message\ndata: " + json.dumps(chunk, ensure_ascii=False).encode() + b"\n\n"
     out = sse.feed(raw)
     assert b"id: 7" in out and b"event: message" in out  # 附加字段保留
     assert b'"logprobs": null' in out  # 仍执行恢复
@@ -220,14 +211,12 @@ def test_extra_event_fields_preserved():
 
 def test_event_split_across_many_chunks():
     """单条事件被拆成多个 body 块 -> 全部重组后才输出（不半截转发）。"""
-    sse = SSEStreamProcessor(
-        True, OriginalParams(True, True, 3, False, 1, False), 20
-    )
+    sse = SSEStreamProcessor(True, OriginalParams(True, True, 3, False, 1, False), 20)
     e = chat_top_entry(100, NI, -0.1, n_top=20)
     raw = _sse_bytes(chat_stream_chunk("glm-4-7", e, delta_text=NI))
     outs = []
     for i in range(len(raw) - 1):
-        out = sse.feed(raw[i:i + 1])  # 逐字节喂入
+        out = sse.feed(raw[i : i + 1])  # 逐字节喂入
         outs.append(out)
         assert out == b""  # 事件未完整前不输出
     final = sse.feed(raw[-1:])

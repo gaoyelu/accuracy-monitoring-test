@@ -1,5 +1,6 @@
 """e2e 全链路：真实本地上游 + webui 后台轮询 → 事件 → 告警 → webhook；
 API 加实例立即可见；外部改 yaml 热重载自动生效。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,13 +10,13 @@ import time
 import httpx
 import pytest
 
-from webui.main import create_app
 from tests._webui_helpers import (
     FakeUpstream,
     WebhookSink,
     build_webui_config_dict,
     write_yaml,
 )
+from webui.main import create_app
 
 
 async def _wait_for(predicate, timeout: float = 15.0, interval: float = 0.2) -> bool:
@@ -71,8 +72,7 @@ async def test_e2e_full_chain(tmp_path, upstream, sink):
         cfg_path,
         _e2e_config(
             instances=[{"name": "prod-1", "url": upstream.url}],
-            alerts=[{"name": "garbled_frequent", "ill_type": "garbled",
-                     "threshold": 1, "window_seconds": 300}],
+            alerts=[{"name": "garbled_frequent", "ill_type": "garbled", "threshold": 1, "window_seconds": 300}],
             webhook_url=sink.url,
         ),
     )
@@ -109,13 +109,9 @@ async def test_e2e_summary_via_api(tmp_path, upstream, sink):
     ctx = app.state.ctx
     await ctx.start()
     try:
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             h = await _login(client)
-            ok = await _wait_for(
-                lambda: ctx.store.summary()["requests"] > 0
-            )
+            ok = await _wait_for(lambda: ctx.store.summary()["requests"] > 0)
             assert ok, "轮询未产生请求数据"
             r = await client.get("/api/summary", headers=h)
             assert r.json()["requests"] >= 1
@@ -137,9 +133,7 @@ async def test_e2e_add_instance_via_api(tmp_path, upstream, sink):
     ctx = app.state.ctx
     await ctx.start()
     try:
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             h = await _login(client)
             r = await client.post(
                 "/api/instances",
@@ -151,9 +145,7 @@ async def test_e2e_add_instance_via_api(tmp_path, upstream, sink):
             r = await client.get("/api/instances", headers=h)
             assert [i["name"] for i in r.json()] == ["added-1"]
             # 后台轮询接管 → 在线并产生事件
-            ok = await _wait_for(
-                lambda: ctx.store.summary()["anomalies"] >= 1
-            )
+            ok = await _wait_for(lambda: ctx.store.summary()["anomalies"] >= 1)
             assert ok, "新增实例未开始轮询产出事件"
             assert ctx.store.instance_stats("added-1").state == "online"
     finally:
@@ -190,8 +182,9 @@ async def test_e2e_external_yaml_hot_reload(tmp_path, upstream, sink):
         os.utime(cfg_path, None)
         # 热重载循环 1s 内检测到 → 恢复轮询 → 在线
         ok = await _wait_for(
-            lambda: ctx.store.instance_stats("prod-1") is not None
-            and ctx.store.instance_stats("prod-1").state == "online",
+            lambda: (
+                ctx.store.instance_stats("prod-1") is not None and ctx.store.instance_stats("prod-1").state == "online"
+            ),
         )
         assert ok, "外部 yaml 热重载未恢复实例轮询"
         ok = await _wait_for(lambda: ctx.store.summary()["requests"] > 0)

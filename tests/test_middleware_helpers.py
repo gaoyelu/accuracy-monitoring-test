@@ -1,19 +1,20 @@
 """middleware 助手 + 分派单元测试：_read_all_body / _make_replay_receive /
 _patch_scope_content_length / __call__ 分派（spec §2.1 §2.10 §2.11 §2.13）。"""
+
 from __future__ import annotations
 
 import json
 
 import pytest
 
+from anomaly_middleware.env import PluginConfig
+from anomaly_middleware.metrics import METRICS_CONTENT_TYPE
 from anomaly_middleware.middleware import (
     AnomalyMiddleware,
     _make_replay_receive,
     _patch_scope_content_length,
     _read_all_body,
 )
-from anomaly_middleware.metrics import METRICS_CONTENT_TYPE
-from anomaly_middleware.env import PluginConfig
 
 
 # --------------------------- _read_all_body --------------------------- #
@@ -21,6 +22,7 @@ from anomaly_middleware.env import PluginConfig
 async def test_read_all_body_single():
     async def receive():
         return {"type": "http.request", "body": b"hello", "more_body": False}
+
     assert await _read_all_body(receive) == b"hello"
 
 
@@ -30,8 +32,10 @@ async def test_read_all_body_multi_chunk():
         {"type": "http.request", "body": b"foo", "more_body": True},
         {"type": "http.request", "body": b"bar", "more_body": False},
     ]
+
     async def receive():
         return msgs.pop(0)
+
     assert await _read_all_body(receive) == b"foobar"
 
 
@@ -39,6 +43,7 @@ async def test_read_all_body_multi_chunk():
 async def test_read_all_body_disconnect():
     async def receive():
         return {"type": "http.disconnect"}
+
     assert await _read_all_body(receive) == b""
 
 
@@ -46,9 +51,11 @@ async def test_read_all_body_disconnect():
 @pytest.mark.asyncio
 async def test_replay_receive_first_synthetic_then_delegate():
     calls = []
+
     async def original_receive():
         calls.append("orig")
         return {"type": "http.disconnect"}
+
     replay = _make_replay_receive(original_receive, b"BODY")
     first = await replay()
     assert first == {"type": "http.request", "body": b"BODY", "more_body": False}
@@ -62,6 +69,7 @@ async def test_replay_receive_never_empty_body_second_call():
     # 二次读绝不返回空 body 的 http.request
     async def original_receive():
         return {"type": "http.disconnect"}
+
     replay = _make_replay_receive(original_receive, b"B")
     await replay()
     second = await replay()
@@ -73,7 +81,7 @@ def test_patch_scope_rewrites_existing_cl():
     scope = {"headers": [[b"content-type", b"application/json"], [b"content-length", b"5"]]}
     new = _patch_scope_content_length(scope, 99)
     assert new is not scope  # 浅拷贝
-    assert dict(new["headers"])["content-length".encode()] in (b"99",)
+    assert dict(new["headers"])[b"content-length"] in (b"99",)
     # 原始 scope 未变
     assert scope["headers"][1][1] == b"5"
 
@@ -144,8 +152,10 @@ async def _recv_iter(receive):
 
 async def _drive(mw, method, path, body=b"", headers=None):
     sent = []
+
     async def send(m):
         sent.append(m)
+
     scope = {
         "type": "http",
         "method": method,
@@ -153,11 +163,13 @@ async def _drive(mw, method, path, body=b"", headers=None):
         "headers": headers or [[b"content-type", b"application/json"], [b"content-length", str(len(body)).encode()]],
     }
     msg = {"delivered": False}
+
     async def receive():
         if not msg["delivered"]:
             msg["delivered"] = True
             return {"type": "http.request", "body": body, "more_body": False}
         return {"type": "http.disconnect"}
+
     await mw(scope, receive, send)
     return sent
 
@@ -234,22 +246,21 @@ class _ErrorApp:
             elif msg["type"] == "http.disconnect":
                 return
         self.received.append(bytes(buf))
-        await send({"type": "http.response.start",
-                    "status": self.status,
-                    "headers": [[b"content-type", b"application/json"]]})
-        await send({"type": "http.response.body", "body": self.body,
-                    "more_body": False})
+        await send(
+            {"type": "http.response.start", "status": self.status, "headers": [[b"content-type", b"application/json"]]}
+        )
+        await send({"type": "http.response.body", "body": self.body, "more_body": False})
 
 
 @pytest.mark.asyncio
 async def test_error_response_json_status_and_body_preserved():
     """下游 400 + 错误 JSON body -> 状态码/错误消息保留，不调度检测。"""
-    err = json.dumps({"object": "error", "message": "bad request",
-                      "type": "invalid_request_error", "code": 400}).encode()
+    err = json.dumps(
+        {"object": "error", "message": "bad request", "type": "invalid_request_error", "code": 400}
+    ).encode()
     app = _ErrorApp(400, err)
     mw = _make_mw_with_fake(app)
-    sent = await _drive(mw, "POST", "/v1/chat/completions",
-                        body=json.dumps({"model": "m", "messages": []}).encode())
+    sent = await _drive(mw, "POST", "/v1/chat/completions", body=json.dumps({"model": "m", "messages": []}).encode())
     start = sent[0]
     assert start["status"] == 400  # 状态码保留
     body = sent[1]["body"]
@@ -257,8 +268,7 @@ async def test_error_response_json_status_and_body_preserved():
     assert parsed["message"] == "bad request"  # 错误消息保留
     # 无 choices -> 不抽取不检测（requests_total 保持 0）
     assert "choices" not in parsed
-    assert _metric_value(mw.metrics.render_metrics(),
-                         "vllm_anomaly_requests_total") == 0.0
+    assert _metric_value(mw.metrics.render_metrics(), "vllm_anomaly_requests_total") == 0.0
 
 
 @pytest.mark.asyncio
@@ -266,12 +276,10 @@ async def test_error_response_non_json_raw_passthrough():
     """下游 500 + 非 JSON body -> 原样透传（不改 body），不调度检测。"""
     app = _ErrorApp(500, b"<html>Internal Server Error</html>")
     mw = _make_mw_with_fake(app)
-    sent = await _drive(mw, "POST", "/v1/chat/completions",
-                        body=json.dumps({"model": "m", "messages": []}).encode())
+    sent = await _drive(mw, "POST", "/v1/chat/completions", body=json.dumps({"model": "m", "messages": []}).encode())
     assert sent[0]["status"] == 500
     assert sent[1]["body"] == b"<html>Internal Server Error</html>"
-    assert _metric_value(mw.metrics.render_metrics(),
-                         "vllm_anomaly_requests_total") == 0.0
+    assert _metric_value(mw.metrics.render_metrics(), "vllm_anomaly_requests_total") == 0.0
 
 
 # --------------------------- 构造期配置非法 -> 降级透传（spec §2.11/§2.13） --------------------------- #
@@ -291,22 +299,28 @@ async def test_interceptor_ignores_repeated_terminal_body():
     from anomaly_middleware.metrics import Metrics
 
     sent = []
+
     async def _send(m):
         sent.append(m)
 
     ctx = mwmod.RequestContext(
         orig=OriginalParams(True, None, None, False, 1, False),
-        is_chat=True, model="m", request_id="rid",
-        will_detect=True, top_logprobs=20,
+        is_chat=True,
+        model="m",
+        request_id="rid",
+        will_detect=True,
+        top_logprobs=20,
     )
     runner = object()  # 无真实 runner；_maybe_schedule_detection 会因 runner None 跳过
     ic = mwmod.ResponseInterceptor(
-        _send, ctx=ctx, runner=runner, metrics=Metrics(),
+        _send,
+        ctx=ctx,
+        runner=runner,
+        metrics=Metrics(),
         pending_tasks=set(),
     )
     # 非流式：start + 完整 body + 重复终端 body
-    await ic({"type": "http.response.start", "status": 200,
-              "headers": [[b"content-type", b"application/json"]]})
+    await ic({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
     body = json.dumps({"id": "c", "model": "m", "choices": []}).encode()
     await ic({"type": "http.response.body", "body": body, "more_body": False})
     n_send = len(sent)

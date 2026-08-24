@@ -8,6 +8,7 @@
 - 四种异常分别独立 gauge（rare_character / garbled / repetition / nan_value），
   按 model 标签，值=该模型最近一次请求是否检出该类异常（1/0）。
 """
+
 from __future__ import annotations
 
 from typing import Sequence

@@ -9,13 +9,9 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.lightweight
 @pytest.mark.full
 @pytest.mark.nightly
-async def test_metrics_endpoint_check(
-    vllm_service_b, http_client, metrics_client, served_name
-):
+async def test_metrics_endpoint_check(vllm_service_b, http_client, metrics_client, served_name):
     before = metrics_client.get_counter("vllm_anomaly_requests_total")
-    resp = await http_client.chat(
-        messages=[{"role": "user", "content": "Hello"}], max_tokens=10
-    )
+    resp = await http_client.chat(messages=[{"role": "user", "content": "Hello"}], max_tokens=10)
     assert resp.status_code == 200
 
     metrics_client.wait_for(

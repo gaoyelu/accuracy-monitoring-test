@@ -1,11 +1,12 @@
 """e2e: chat 非流式 — 注入 / Content-Length / 响应恢复 / 关联头（spec §2.2 §2.3 §2.9）。"""
+
 from __future__ import annotations
 
 import json
 
 import pytest
+from _helpers import chat_top_entry, install_fake_resolver
 
-from _helpers import build_chat_response, chat_top_entry, install_fake_resolver
 from conftest import drain
 
 NI = "你"
@@ -33,6 +34,7 @@ def _chat_resp_fn(model="glm-4-7", n_top=20, nan_choice=None):
             "json",
             {"id": "c", "object": "chat.completion", "model": model, "choices": choices},
         )
+
     return fn
 
 
@@ -130,10 +132,12 @@ async def test_chat_inject_max_client_vs_n(client_factory):
     injected2 = json.loads(fake2.received[0][1])
     assert injected2["top_logprobs"] == 10  # max(10, 5)
     # 恢复截断到客户端 10
-    entry = (await client2.post(
-        "/v1/chat/completions",
-        json={"model": "m", "messages": [], "logprobs": True, "top_logprobs": 10},
-    )).json()["choices"][0]["logprobs"]["content"][0]
+    entry = (
+        await client2.post(
+            "/v1/chat/completions",
+            json={"model": "m", "messages": [], "logprobs": True, "top_logprobs": 10},
+        )
+    ).json()["choices"][0]["logprobs"]["content"][0]
     assert len(entry["top_logprobs"]) == 10
 
 
@@ -175,9 +179,7 @@ async def test_chat_top_logprobs_resolver_text_no_leak(client_factory):
         )
 
     client, fake, mw = client_factory(fn)
-    install_fake_resolver(
-        mw, {200: HAO, 10000: "甲", 10001: "乙", 10002: "丙", 10003: "丁", 10004: "戊"}
-    )
+    install_fake_resolver(mw, {200: HAO, 10000: "甲", 10001: "乙", 10002: "丙", 10003: "丁", 10004: "戊"})
     resp = await client.post(
         "/v1/chat/completions",
         json={

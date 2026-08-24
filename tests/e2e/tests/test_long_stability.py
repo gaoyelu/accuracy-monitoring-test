@@ -21,7 +21,8 @@ async def test_long_stability(vllm_service_b, http_client, metrics_client):
             )
         else:
             resp = await http_client.completions(
-                prompt=f"Prompt {i}", max_tokens=16,
+                prompt=f"Prompt {i}",
+                max_tokens=16,
             )
         assert resp.status_code == 200
         if i > 0 and i % 100 == 0:
@@ -35,6 +36,4 @@ async def test_long_stability(vllm_service_b, http_client, metrics_client):
     )
     after = metrics_client.get_counter("vllm_anomaly_requests_total")
     assert after - before == total
-    assert max_rss <= initial_rss * 2, (
-        f"RSS grew from {initial_rss}MB to {max_rss}MB (>2x, possible leak)"
-    )
+    assert max_rss <= initial_rss * 2, f"RSS grew from {initial_rss}MB to {max_rss}MB (>2x, possible leak)"

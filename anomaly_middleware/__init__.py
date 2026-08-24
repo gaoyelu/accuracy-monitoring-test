@@ -4,7 +4,8 @@
 `anomaly_middleware.middleware.AnomalyMiddleware` 均可解析。
 部署：`vllm serve <model> --middleware anomaly_middleware.AnomalyMiddleware`
 """
-from .middleware import AnomalyMiddleware, ResponseInterceptor, RequestContext
 
-__all__ = ["AnomalyMiddleware", "ResponseInterceptor", "RequestContext"]
+from .middleware import AnomalyMiddleware, RequestContext, ResponseInterceptor
+
+__all__ = ["AnomalyMiddleware", "RequestContext", "ResponseInterceptor"]
 __version__ = "0.1.0"

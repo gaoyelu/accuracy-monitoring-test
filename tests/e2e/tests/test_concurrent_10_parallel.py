@@ -9,12 +9,14 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def concurrent_service(vllm_service_factory, model_yaml):
-    return vllm_service_factory({
-        "model": model_yaml,
-        "middleware": True,
-        "env": {"VLLM_ANOMALY_DETECTOR_WORKERS": "4"},
-        "with_injector": False,
-    })
+    return vllm_service_factory(
+        {
+            "model": model_yaml,
+            "middleware": True,
+            "env": {"VLLM_ANOMALY_DETECTOR_WORKERS": "4"},
+            "with_injector": False,
+        }
+    )
 
 
 @pytest.fixture
@@ -36,9 +38,7 @@ def concurrent_metrics(concurrent_service):
 async def test_concurrent_10_parallel(concurrent_http, concurrent_metrics):
     before = concurrent_metrics.get_counter("vllm_anomaly_requests_total")
     messages = [{"role": "user", "content": "Hello"}]
-    responses = await asyncio.gather(
-        *(concurrent_http.chat(messages=messages) for _ in range(10))
-    )
+    responses = await asyncio.gather(*(concurrent_http.chat(messages=messages) for _ in range(10)))
     for resp in responses:
         assert resp.status_code == 200
     concurrent_metrics.wait_for(

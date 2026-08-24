@@ -21,17 +21,19 @@
 后者降级为无词表检测（rare/garbled 走 top1 logp 路径，repetition/acf/trajectory 不受影响）。
 topk 由参数 topk_n 传入，消除 self.topk 首次锁定问题。
 """
+
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Dict, Generator, List, Optional, Tuple
+
 import numpy as np
 import yaml
 
 
 def load_yaml(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         config_data = yaml.safe_load(f)
     return config_data
 

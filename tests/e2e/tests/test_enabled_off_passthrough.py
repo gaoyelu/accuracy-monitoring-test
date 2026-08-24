@@ -39,9 +39,7 @@ def custom_metrics(custom_service):
 async def test_enabled_off_passthrough(custom_http, custom_metrics):
     before = custom_metrics.get_counter("vllm_anomaly_requests_total")
 
-    resp = await custom_http.chat(
-        messages=[{"role": "user", "content": "Hello"}], max_tokens=32, temperature=0.0
-    )
+    resp = await custom_http.chat(messages=[{"role": "user", "content": "Hello"}], max_tokens=32, temperature=0.0)
     assert resp.status_code == 200
     data = resp.json()
     assert data["choices"][0]["message"]["content"]

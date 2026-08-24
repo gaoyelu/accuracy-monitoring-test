@@ -1,4 +1,5 @@
 """collector 单元测试：解析、离线标记、基线语义、实例生命周期、轮询定时。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,19 +7,23 @@ import asyncio
 import httpx
 import pytest
 
+from tests._webui_helpers import make_metrics_text
 from webui.alerts import AlertEngine, AlertRule
 from webui.collector import Collector, MetricsParseError, parse_metrics_text
 from webui.config import InstanceConfig, PollConfig, StoreConfig
-from webui.events import AnomalyEvent, DeltaSummary, EventSynthesizer
+from webui.events import DeltaSummary, EventSynthesizer
 from webui.store import Store
-from tests._webui_helpers import make_metrics_text
 
 
 def _store() -> Store:
     return Store(
-        StoreConfig(event_capacity=1000, alert_capacity=200,
-                    raw_trend_window_seconds=3600, trend_bucket_seconds=60,
-                    trend_horizon_seconds=86400)
+        StoreConfig(
+            event_capacity=1000,
+            alert_capacity=200,
+            raw_trend_window_seconds=3600,
+            trend_bucket_seconds=60,
+            trend_horizon_seconds=86400,
+        )
     )
 
 
@@ -202,14 +207,10 @@ async def test_resume_first_snapshot_baseline_skips_jump():
     d = await col.poll_once("a")
     assert d is not None and d.requests == 99 and len(d.events) == 49
     col._synth.reset("a")  # 模拟恢复：清基线
-    col._client.responses.append(
-        httpx.Response(200, text=make_metrics_text(60, [(2, "m", "0", 20)]))
-    )
+    col._client.responses.append(httpx.Response(200, text=make_metrics_text(60, [(2, "m", "0", 20)])))
     assert await col.poll_once("a") is None  # 恢复首份仅基线（跳变被忽略）
     # 值变小也不产生负增量
-    col._client.responses.append(
-        httpx.Response(200, text=make_metrics_text(61, [(2, "m", "0", 21)]))
-    )
+    col._client.responses.append(httpx.Response(200, text=make_metrics_text(61, [(2, "m", "0", 21)])))
     d = await col.poll_once("a")
     assert d is not None and d.requests == 1 and len(d.events) == 1
 

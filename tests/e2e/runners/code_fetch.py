@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import os
 import subprocess
+from typing import Optional
 
 
-def fetch_code(workspace: str, pr_number: str = None, pr_sha: str = None,
-               pr_repo: str = None, local: bool = False) -> str:
+def fetch_code(
+    workspace: str,
+    pr_number: Optional[str] = None,
+    pr_sha: Optional[str] = None,
+    pr_repo: Optional[str] = None,
+    local: bool = False,
+) -> str:
     """Clone PR code to workspace. If local=True, return workspace as-is."""
     if local:
         return workspace
@@ -13,7 +19,9 @@ def fetch_code(workspace: str, pr_number: str = None, pr_sha: str = None,
         raise RuntimeError("pr_repo is required when not in local mode")
     if os.path.exists(workspace):
         subprocess.run(
-            ["git", "fetch", "origin"], cwd=workspace, check=False,
+            ["git", "fetch", "origin"],
+            cwd=workspace,
+            check=False,
         )
     else:
         subprocess.run(
@@ -22,6 +30,8 @@ def fetch_code(workspace: str, pr_number: str = None, pr_sha: str = None,
         )
     if pr_sha:
         subprocess.run(
-            ["git", "checkout", pr_sha], cwd=workspace, check=True,
+            ["git", "checkout", pr_sha],
+            cwd=workspace,
+            check=True,
         )
     return workspace

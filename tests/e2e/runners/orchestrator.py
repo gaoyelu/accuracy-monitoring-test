@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
-import subprocess
 import xml.etree.ElementTree as ET
 
 _E2E_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -12,6 +12,7 @@ if _E2E_ROOT not in sys.path:
 _REPO_ROOT = os.path.abspath(os.path.join(_E2E_ROOT, "..", ".."))
 
 from utils.report import render_report
+
 from .code_fetch import fetch_code
 from .env_check import check_env, check_python_deps
 from .env_install import install_deps
@@ -32,18 +33,17 @@ class Orchestrator:
     def run(self) -> int:
         check_python_deps()
         run_id = time.strftime("%Y%m%d-%H%M%S")
-        report_dir = self.report_dir or os.path.join(
-            "tests", "e2e", "reports", run_id
-        )
+        report_dir = self.report_dir or os.path.join("tests", "e2e", "reports", run_id)
         os.makedirs(report_dir, exist_ok=True)
         if not self.local:
             model_cfg = self._load_model_cfg()
             check_env(model_cfg)
-            workspace = self.workspace or os.path.join(
-                "/vllm-workspace", "accuracy-monitoring"
-            )
+            workspace = self.workspace or os.path.join("/vllm-workspace", "accuracy-monitoring")
             fetch_code(
-                workspace, self.pr_number, self.pr_sha, self.pr_repo,
+                workspace,
+                self.pr_number,
+                self.pr_sha,
+                self.pr_repo,
                 local=False,
             )
             install_deps(workspace)
@@ -57,16 +57,19 @@ class Orchestrator:
         rc = 0
         for model_yaml in self._resolve_model_yamls():
             model_name = os.path.splitext(os.path.basename(model_yaml))[0]
-            junit_path = os.path.join(
-                report_dir, f"junit-{run_id}-{model_name}.xml"
-            )
+            junit_path = os.path.join(report_dir, f"junit-{run_id}-{model_name}.xml")
             cmd = [
-                sys.executable, "-m", "pytest", "tests/e2e/tests/",
-                "-m", self.tier,
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/e2e/tests/",
+                "-m",
+                self.tier,
                 f"--model-yaml={model_yaml}",
                 f"--report-dir={report_dir}",
                 f"--junit-xml={junit_path}",
-                "-p", "tests.e2e.markers",
+                "-p",
+                "tests.e2e.markers",
                 "--tb=short",
             ]
             result = subprocess.run(cmd)
@@ -81,9 +84,7 @@ class Orchestrator:
         meta = {
             "run_id": run_id,
             "tier": self.tier,
-            "models": [
-                m.strip() for m in self.models.split(",") if m.strip()
-            ],
+            "models": [m.strip() for m in self.models.split(",") if m.strip()],
             "pr_number": self.pr_number,
             "pr_sha": self.pr_sha or "",
             "start_time": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -93,9 +94,7 @@ class Orchestrator:
             "failed": sum(1 for r in results if r["status"] == "failed"),
             "skipped": sum(1 for r in results if r["status"] == "skipped"),
         }
-        template_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "utils")
-        )
+        template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "utils"))
         render_report(results, meta, template_dir, report_dir)
 
     @staticmethod
@@ -123,29 +122,28 @@ class Orchestrator:
                     status = "skipped"
                     skip = tc.find("skipped")
                     fail_summary = (skip.get("message") or "")[:200]
-                results.append({
-                    "funcname": tc.get("name", ""),
-                    "tc_id": tc.get("classname", ""),
-                    "priority": "",
-                    "model": "",
-                    "status": status,
-                    "duration": tc.get("time", "0"),
-                    "fail_summary": fail_summary,
-                })
+                results.append(
+                    {
+                        "funcname": tc.get("name", ""),
+                        "tc_id": tc.get("classname", ""),
+                        "priority": "",
+                        "model": "",
+                        "status": status,
+                        "duration": tc.get("time", "0"),
+                        "fail_summary": fail_summary,
+                    }
+                )
         return results
 
     def _resolve_model_yamls(self) -> list:
         if getattr(self.args, "model_yaml", None):
             return [self.args.model_yaml]
         models_dir = os.path.join("tests", "e2e", "models")
-        return [
-            os.path.join(models_dir, m.strip())
-            for m in self.models.split(",")
-            if m.strip()
-        ]
+        return [os.path.join(models_dir, m.strip()) for m in self.models.split(",") if m.strip()]
 
     def _load_model_cfg(self) -> dict:
         import yaml
+
         path = self._resolve_model_yamls()[0]
         with open(path) as f:
             return yaml.safe_load(f)

@@ -3,6 +3,7 @@
 检测器仅依赖 detector.yaml（算法阈值）+ 运行时注入的 tk2cat 映射。
 配置路径固定为 configs/detector.yaml（项目根目录），不可通过 env 覆盖。
 """
+
 from __future__ import annotations
 
 import os
@@ -67,18 +68,12 @@ class PluginConfig:
         top_logprobs = _env_int("VLLM_ANOMALY_TOP_LOGPROBS", TOP_LOGPROBS_DEFAULT)
         monitor_rate = _env_float("VLLM_ANOMALY_MONITOR_RATE", MONITOR_RATE_DEFAULT)
         if not isinstance(top_logprobs, int) or not (1 <= top_logprobs <= 20):
-            raise ValueError(
-                f"VLLM_ANOMALY_TOP_LOGPROBS 必须为 1-20 整数, 当前值: {top_logprobs}"
-            )
+            raise ValueError(f"VLLM_ANOMALY_TOP_LOGPROBS 必须为 1-20 整数, 当前值: {top_logprobs}")
         if not (0.0 <= monitor_rate <= 1.0):
-            raise ValueError(
-                f"VLLM_ANOMALY_MONITOR_RATE 必须为 0.0-1.0, 当前值: {monitor_rate}"
-            )
+            raise ValueError(f"VLLM_ANOMALY_MONITOR_RATE 必须为 0.0-1.0, 当前值: {monitor_rate}")
         workers = _env_int("VLLM_ANOMALY_DETECTOR_WORKERS", DETECTOR_WORKERS_DEFAULT)
         if not isinstance(workers, int) or workers < 1:
-            raise ValueError(
-                f"VLLM_ANOMALY_DETECTOR_WORKERS 必须为正整数, 当前值: {workers}"
-            )
+            raise ValueError(f"VLLM_ANOMALY_DETECTOR_WORKERS 必须为正整数, 当前值: {workers}")
         return cls(
             enabled=_env_bool("VLLM_ANOMALY_ENABLED", True),
             top_logprobs=top_logprobs,
@@ -99,6 +94,4 @@ def resolve_config_path() -> str:
     cfg = os.path.join(os.path.dirname(base_dir), "configs", "detector.yaml")
     if os.path.isfile(cfg):
         return cfg
-    raise FileNotFoundError(
-        f"检测器配置文件缺失: {cfg} 不存在，请确认部署目录结构完整"
-    )
+    raise FileNotFoundError(f"检测器配置文件缺失: {cfg} 不存在，请确认部署目录结构完整")

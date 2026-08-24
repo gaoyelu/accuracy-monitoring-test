@@ -1,4 +1,5 @@
 """测试辅助：构造 vLLM 风格响应 + 模拟下游 ASGI app。"""
+
 from __future__ import annotations
 
 import json
@@ -31,11 +32,7 @@ def chat_top_entry(
         lp = logprob - i * 0.1
         if nan_at is not None and i == nan_at:
             lp = float("nan")
-        top_b = (
-            list(f"token_id:{cid}".encode("utf-8"))
-            if vllm_broken_top_bytes
-            else b
-        )
+        top_b = list(f"token_id:{cid}".encode()) if vllm_broken_top_bytes else b
         tps.append(
             {
                 "token": f"token_id:{cid}",
@@ -98,7 +95,12 @@ def build_completions_response(
         "object": "text_completion",
         "model": model,
         "choices": [
-            {"index": i, "text": "x", "logprobs": {k: list(v) if isinstance(v, list) else v for k, v in lp.items()}, "finish_reason": "stop"}
+            {
+                "index": i,
+                "text": "x",
+                "logprobs": {k: list(v) if isinstance(v, list) else v for k, v in lp.items()},
+                "finish_reason": "stop",
+            }
             for i in range(n)
         ],
     }
@@ -215,9 +217,7 @@ class FakeVLLM:
                     ],
                 }
             )
-            await send(
-                {"type": "http.response.body", "body": data, "more_body": False}
-            )
+            await send({"type": "http.response.body", "body": data, "more_body": False})
         elif kind == "stream":
             chunks = result[1]
             split_index = result[2] if len(result) > 2 else None
@@ -241,11 +241,7 @@ class FakeVLLM:
                 else:
                     parts.append(raw)
             for p in parts:
-                await send(
-                    {"type": "http.response.body", "body": p, "more_body": True}
-                )
-            await send(
-                {"type": "http.response.body", "body": b"", "more_body": False}
-            )
+                await send({"type": "http.response.body", "body": p, "more_body": True})
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
         else:
             raise AssertionError(f"unknown kind {kind}")

@@ -9,7 +9,6 @@ import time
 
 from .process_manager import auto_select_port, terminate_process_tree, wait_for_url
 
-
 _CORE_SCALARS: dict[str, str] = {
     "tensor_parallel_size": "tensor-parallel-size",
     "dtype": "dtype",
@@ -99,9 +98,13 @@ class VllmLauncher:
     def build_cmd(self, *, middleware: bool, env_overrides: dict) -> list[str]:
         cfg = self.model_cfg
         cmd: list[str] = [
-            "vllm", "serve", cfg["model_path"],
-            "--host", self.host,
-            "--port", str(self.port),
+            "vllm",
+            "serve",
+            cfg["model_path"],
+            "--host",
+            self.host,
+            "--port",
+            str(self.port),
         ]
 
         for key, flag in _CORE_SCALARS.items():
@@ -121,9 +124,7 @@ class VllmLauncher:
             val = cfg.get(key)
             if val is None:
                 continue
-            serialized = val if isinstance(val, str) else json.dumps(
-                val, separators=(",", ":"), ensure_ascii=False
-            )
+            serialized = val if isinstance(val, str) else json.dumps(val, separators=(",", ":"), ensure_ascii=False)
             cmd += [f"--{flag}", serialized]
 
         for key, flag in _BOOL_FLAGS.items():
@@ -181,16 +182,12 @@ class VllmLauncher:
                         out += [f"--{flag}", self._serialize_value(el[1])]
         return out
 
-    def _session_name(
-        self, middleware: bool, env_overrides: dict, with_injector: bool
-    ) -> str:
+    def _session_name(self, middleware: bool, env_overrides: dict, with_injector: bool) -> str:
         parts = ["mw_on" if middleware else "mw_off"]
         if with_injector:
             parts.append("injector")
         if env_overrides:
-            digest = hashlib.md5(
-                json.dumps(env_overrides, sort_keys=True, default=str).encode()
-            ).hexdigest()[:8]
+            digest = hashlib.md5(json.dumps(env_overrides, sort_keys=True, default=str).encode()).hexdigest()[:8]
             parts.append(digest)
         return "_".join(parts)
 
@@ -210,15 +207,11 @@ class VllmLauncher:
         env.update({k: str(v) for k, v in env_overrides.items()})
 
         existing_pp = env.get("PYTHONPATH", "")
-        env["PYTHONPATH"] = self.workspace + (
-            os.pathsep + existing_pp if existing_pp else ""
-        )
+        env["PYTHONPATH"] = self.workspace + (os.pathsep + existing_pp if existing_pp else "")
 
         if with_injector:
             env["VLLM_ANOMALY_E2E_INJECTOR"] = f"http://127.0.0.1:{injector_port}"
-            runtime_dir = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "_injector_runtime"
-            )
+            runtime_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_injector_runtime")
             env["PYTHONPATH"] = runtime_dir + os.pathsep + env["PYTHONPATH"]
 
         cmd = self.build_cmd(middleware=middleware, env_overrides=env_overrides)
@@ -247,9 +240,7 @@ class VllmLauncher:
                 self.stop()
                 raise
         else:
-            self._wait_for_health(
-                timeout=float(self.model_cfg.get("startup_timeout_sec", 600))
-            )
+            self._wait_for_health(timeout=float(self.model_cfg.get("startup_timeout_sec", 600)))
 
     def _wait_for_health(self, timeout: float) -> None:
         health_url = f"http://127.0.0.1:{self.port}/health"
@@ -257,14 +248,11 @@ class VllmLauncher:
         while time.time() < deadline:
             if self.proc is not None and self.proc.poll() is not None:
                 raise RuntimeError(
-                    f"vLLM process exited unexpectedly (code="
-                    f"{self.proc.returncode}); see log: {self._log_path}"
+                    f"vLLM process exited unexpectedly (code={self.proc.returncode}); see log: {self._log_path}"
                 )
             if wait_for_url(health_url, timeout=2.0, interval=1.0):
                 return
-        raise TimeoutError(
-            f"vLLM health check timed out after {timeout}s; see log: {self._log_path}"
-        )
+        raise TimeoutError(f"vLLM health check timed out after {timeout}s; see log: {self._log_path}")
 
     def _wait_for_fail(self, timeout: float) -> None:
         deadline = time.time() + timeout
@@ -272,16 +260,10 @@ class VllmLauncher:
             rc = self.proc.poll() if self.proc is not None else None
             if rc is not None:
                 if rc == 0:
-                    raise AssertionError(
-                        f"vLLM exited with code 0 but failure was expected; "
-                        f"see log: {self._log_path}"
-                    )
+                    raise AssertionError(f"vLLM exited with code 0 but failure was expected; see log: {self._log_path}")
                 return
             time.sleep(1.0)
-        raise AssertionError(
-            f"vLLM did not exit within {timeout}s but failure was expected; "
-            f"see log: {self._log_path}"
-        )
+        raise AssertionError(f"vLLM did not exit within {timeout}s but failure was expected; see log: {self._log_path}")
 
     @property
     def url(self) -> str:

@@ -8,9 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate anomaly data for E2E injection tests"
-    )
+    parser = argparse.ArgumentParser(description="Generate anomaly data for E2E injection tests")
     parser.add_argument("--tokenizer", required=True, help="Model path for tokenizer")
     parser.add_argument("--model-name", default=None, help="Model name for cache dir")
     parser.add_argument(
@@ -32,9 +30,7 @@ def main():
         seed=args.seed,
     )
 
-    cache_dir = args.output_dir or os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), model_name
-    )
+    cache_dir = args.output_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), model_name)
 
     print(f"Generated anomaly data for model: {model_name}")
     print(f"Cache directory: {cache_dir}")

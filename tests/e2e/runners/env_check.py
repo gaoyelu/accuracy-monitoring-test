@@ -15,20 +15,13 @@ def check_env(model_cfg: dict) -> None:
         raise RuntimeError("git executable not found in PATH")
     model_path = model_cfg.get("model_path")
     if not model_path or not os.path.isdir(model_path):
-        raise RuntimeError(
-            f"model_path not found or not a directory: {model_path}"
-        )
+        raise RuntimeError(f"model_path not found or not a directory: {model_path}")
 
 
 def check_python_deps() -> None:
     """Check test runtime dependencies (pytest, pytest-asyncio) importable."""
-    missing = [
-        mod for mod in _REQUIRED_PY_DEPS
-        if importlib.util.find_spec(mod) is None
-    ]
+    missing = [mod for mod in _REQUIRED_PY_DEPS if importlib.util.find_spec(mod) is None]
     if missing:
         raise RuntimeError(
-            "missing Python test dependencies: "
-            + ", ".join(missing)
-            + " (pip install pytest pytest-asyncio)"
+            "missing Python test dependencies: " + ", ".join(missing) + " (pip install pytest pytest-asyncio)"
         )

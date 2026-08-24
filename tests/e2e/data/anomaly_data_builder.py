@@ -28,12 +28,8 @@ def _group_by_category(tk2cat: Dict[str, str]) -> Dict[str, List[int]]:
     return by_cat
 
 
-def _get_usable_categories(
-    by_cat: Dict[str, List[int]], min_categories: int = 3
-) -> List[Tuple[str, List[int]]]:
-    usable = [
-        (c, ids) for c, ids in by_cat.items() if c not in EXCLUDED and len(ids) > 0
-    ]
+def _get_usable_categories(by_cat: Dict[str, List[int]], min_categories: int = 3) -> List[Tuple[str, List[int]]]:
+    usable = [(c, ids) for c, ids in by_cat.items() if c not in EXCLUDED and len(ids) > 0]
     if len(usable) < min_categories:
         raise RuntimeError(
             f"model has insufficient surviving categories: "
@@ -183,9 +179,7 @@ def build_detection_error() -> dict:
     return {"logprobs": [err_lp], "token_ids": [err_ti]}
 
 
-def verify_payload(
-    payload: dict, tk2cat: Dict[str, str], vocab_size: int, expect_ill_type: int
-) -> bool:
+def verify_payload(payload: dict, tk2cat: Dict[str, str], vocab_size: int, expect_ill_type: int) -> bool:
     import numpy as np
 
     from anomaly_middleware.detector import ILLDetector
@@ -201,9 +195,7 @@ def verify_payload(
     if not res.is_ill:
         raise AssertionError(f"payload did not trigger detection: {res}")
     if res.ill_type != expect_ill_type:
-        raise AssertionError(
-            f"expected ill_type={expect_ill_type}, got ill_type={res.ill_type}"
-        )
+        raise AssertionError(f"expected ill_type={expect_ill_type}, got ill_type={res.ill_type}")
     return True
 
 
@@ -231,7 +223,7 @@ def _try_load_cache(cache_dir: str) -> dict | None:
         if not os.path.exists(path):
             return None
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 result[name] = json.load(f)
         except Exception:
             return None

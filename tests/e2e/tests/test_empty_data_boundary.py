@@ -12,7 +12,10 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.nightly
 @pytest.mark.inject
 async def test_empty_data_boundary(
-    vllm_service_b, injector, http_client, metrics_client,
+    vllm_service_b,
+    injector,
+    http_client,
+    metrics_client,
 ):
     if not injector.health_check():
         pytest.skip("injector infrastructure not available")

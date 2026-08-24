@@ -4,6 +4,7 @@
 启动期同步加载：env → argv(--tokenizer) → argv(--model) → HF 缓存扫描。
 均失败 → raise（启动期 fail-fast）。
 """
+
 from __future__ import annotations
 
 import sys
@@ -41,18 +42,40 @@ class VllmArgvInfo:
 # 未列出的 --flag 视为布尔开关（不消费值），其后的非 - 开头参数仍可被识别为 model。
 # 如果某个带值 flag 未在此集合中，其值可能被误认为 model 位置参数——
 # argv 解析失败时仍有 HF 缓存兜底。
-_VALUE_FLAGS = frozenset({
-    "--served-model-name", "--middleware", "--download-dir",
-    "--dtype", "--quantization", "--revision", "--tokenizer-revision",
-    "--tokenizer-mode", "--chat-template", "--response-role",
-    "--uvicorn-log-level", "--api-key", "--max-model-len",
-    "--max-num-seqs", "--max-num-batched-token", "--block-size",
-    "--swap-space", "--tensor-parallel-size", "--pipeline-parallel-size",
-    "--gpu-memory-utilization", "--distributed-executor-backend",
-    "--max-loras", "--max-lora-rank", "--max-cpu-loras",
-    "--load-format", "--config-format", "--kv-cache-dtype",
-    "--hf-overrides", "--quantization-param-path", "--model",
-})
+_VALUE_FLAGS = frozenset(
+    {
+        "--served-model-name",
+        "--middleware",
+        "--download-dir",
+        "--dtype",
+        "--quantization",
+        "--revision",
+        "--tokenizer-revision",
+        "--tokenizer-mode",
+        "--chat-template",
+        "--response-role",
+        "--uvicorn-log-level",
+        "--api-key",
+        "--max-model-len",
+        "--max-num-seqs",
+        "--max-num-batched-token",
+        "--block-size",
+        "--swap-space",
+        "--tensor-parallel-size",
+        "--pipeline-parallel-size",
+        "--gpu-memory-utilization",
+        "--distributed-executor-backend",
+        "--max-loras",
+        "--max-lora-rank",
+        "--max-cpu-loras",
+        "--load-format",
+        "--config-format",
+        "--kv-cache-dtype",
+        "--hf-overrides",
+        "--quantization-param-path",
+        "--model",
+    }
+)
 
 
 def parse_vllm_argv(argv: Optional[List[str]] = None) -> Optional[VllmArgvInfo]:

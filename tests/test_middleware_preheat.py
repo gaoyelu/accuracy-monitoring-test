@@ -1,9 +1,10 @@
 """预热 / _ensure_resolver 生成映射 / 竞态补调 set_vocabulary（spec §4.5 §4.6）。"""
+
 from __future__ import annotations
 
 import pytest
-
 from _helpers import FakeVLLM
+
 from anomaly_middleware import AnomalyMiddleware
 from anomaly_middleware.env import PluginConfig
 
@@ -36,8 +37,8 @@ def fake_mapping():
 # --------------------------- 预热 --------------------------- #
 def test_preheat_sets_tk2cat_when_tokenizer_model_set(monkeypatch, fake_tok, fake_mapping):
     """config.tokenizer_model 已设 -> 预热线程加载 tokenizer -> _tk2cat/_vocab_size 就绪。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
 
     monkeypatch.setattr(tr, "_from_pretrained", lambda path, **k: fake_tok)
     monkeypatch.setattr(gmc, "generate_tk2cat", lambda tok: fake_mapping)
@@ -55,12 +56,13 @@ def test_preheat_sets_tk2cat_when_tokenizer_model_set(monkeypatch, fake_tok, fak
 
 def test_preheat_without_tokenizer_model_uses_argv_loopback(monkeypatch, fake_tok, fake_mapping):
     """无 tokenizer_model → 从 argv 解析 --tokenizer/--model → 加载。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
     from anomaly_middleware.token_resolver import VllmArgvInfo
 
     monkeypatch.setattr(
-        tr, "parse_vllm_argv",
+        tr,
+        "parse_vllm_argv",
         lambda: VllmArgvInfo(model="/data/Qwen3-0.6B", tokenizer=None),
     )
     monkeypatch.setattr(tr, "poll_model_root", lambda server, **k: None)
@@ -80,8 +82,8 @@ def test_preheat_without_tokenizer_model_uses_argv_loopback(monkeypatch, fake_to
 
 def test_preheat_uses_argv_tokenizer_when_present(monkeypatch, fake_tok, fake_mapping):
     """argv 含 --tokenizer → 优先使用 tokenizer 路径（而非 model 路径）。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
     from anomaly_middleware.token_resolver import VllmArgvInfo
 
     captured = {}
@@ -91,7 +93,8 @@ def test_preheat_uses_argv_tokenizer_when_present(monkeypatch, fake_tok, fake_ma
         return fake_tok
 
     monkeypatch.setattr(
-        tr, "parse_vllm_argv",
+        tr,
+        "parse_vllm_argv",
         lambda: VllmArgvInfo(model="/data/model", tokenizer="/data/tok"),
     )
     monkeypatch.setattr(tr, "poll_model_root", lambda server, **k: None)
@@ -111,6 +114,7 @@ def test_preheat_uses_argv_tokenizer_when_present(monkeypatch, fake_tok, fake_ma
 def test_preheat_no_path_logs_error(monkeypatch, caplog):
     """无 env + argv 解析失败 + 无 HTTP root → 记录 ERROR 提示设置 env。"""
     import logging
+
     import anomaly_middleware.token_resolver as tr
 
     monkeypatch.setattr(tr, "parse_vllm_argv", lambda: None)
@@ -128,8 +132,8 @@ def test_preheat_no_path_logs_error(monkeypatch, caplog):
 
 def test_preheat_tk2cat_failure_does_not_break_resolver(monkeypatch, fake_tok):
     """tk2cat 生成失败 -> resolver 仍就绪，检测降级无词表。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
 
     def _raise_generate(tok):
         raise RuntimeError("no decode path")
@@ -148,8 +152,8 @@ def test_preheat_tk2cat_failure_does_not_break_resolver(monkeypatch, fake_tok):
 # --------------------------- _ensure_resolver 慢路径 --------------------------- #
 async def test_ensure_resolver_slow_path_generates_tk2cat(monkeypatch, fake_tok, fake_mapping):
     """未预热 -> _ensure_resolver 慢路径：acquire_tokenizer + generate_tk2cat。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
 
     async def _no_fetch(server):
         return None
@@ -173,8 +177,8 @@ async def test_ensure_resolver_slow_path_generates_tk2cat(monkeypatch, fake_tok,
 
 async def test_ensure_runner_injects_topk_n_and_vocabulary(monkeypatch, fake_tok, fake_mapping):
     """_ensure_runner 传 topk_n + 预热完成 -> 构造后立即 set_vocabulary。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
 
     monkeypatch.setattr(tr, "_from_pretrained", lambda path, **k: fake_tok)
     monkeypatch.setattr(gmc, "generate_tk2cat", lambda tok: fake_mapping)
@@ -193,8 +197,8 @@ async def test_ensure_runner_injects_topk_n_and_vocabulary(monkeypatch, fake_tok
 
 async def test_ensure_resolver_fast_path_backfills_set_vocabulary(monkeypatch, fake_tok, fake_mapping):
     """竞态：预热在 _ensure_runner 之后完成 -> _ensure_resolver 快路径补调 set_vocabulary。"""
-    import anomaly_middleware.token_resolver as tr
     import anomaly_middleware.token_categorizer as gmc
+    import anomaly_middleware.token_resolver as tr
 
     monkeypatch.setattr(tr, "_from_pretrained", lambda path, **k: fake_tok)
     monkeypatch.setattr(gmc, "generate_tk2cat", lambda tok: fake_mapping)

@@ -1,8 +1,8 @@
 """auth 单元测试：登录校验、token 过期、凭据热重载。"""
+
 from __future__ import annotations
 
 import hashlib
-import time
 
 from webui.auth import AuthManager
 from webui.config import AuthConfig
@@ -11,8 +11,7 @@ from webui.config import AuthConfig
 def _cfg(username="admin", password="", password_hash="", ttl=24):
     if not password and not password_hash:
         password = "s3cret"
-    return AuthConfig(username=username, secret=password, password_hash=password_hash,
-                      token_ttl_hours=ttl)
+    return AuthConfig(username=username, secret=password, password_hash=password_hash, token_ttl_hours=ttl)
 
 
 def test_login_success_returns_token():

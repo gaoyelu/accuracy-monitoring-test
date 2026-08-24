@@ -1,12 +1,11 @@
 """e2e: completions 非流式 — 注入 / 响应恢复 / 无 token_id 泄漏（spec §2.2 §2.3）。"""
+
 from __future__ import annotations
 
 import json
 
 import pytest
-
 from _helpers import build_completions_response, install_fake_resolver
-from conftest import drain
 
 pytestmark = pytest.mark.asyncio
 
@@ -17,6 +16,7 @@ def _comp_resp_fn(model="glm-4-7", n_top=20):
             "json",
             build_completions_response(model, [100, 200], [-0.1, -0.2], n_top=n_top),
         )
+
     return fn
 
 
@@ -82,9 +82,7 @@ async def test_completions_no_resolver_fallback_to_token_id(client_factory):
 async def test_completions_restore_text_with_resolver(client_factory):
     # resolver on：tokens 还原为文本、top_logprobs 还原为 {文本:logprob}，全文无 token_id:
     client, fake, mw = client_factory(_comp_resp_fn(n_top=20))
-    install_fake_resolver(
-        mw, {100: "你", 200: "好", 10000: "甲", 10001: "乙", 10002: "丙"}
-    )
+    install_fake_resolver(mw, {100: "你", 200: "好", 10000: "甲", 10001: "乙", 10002: "丙"})
     resp = await client.post(
         "/v1/completions",
         json={"model": "m", "prompt": "x", "logprobs": 3},

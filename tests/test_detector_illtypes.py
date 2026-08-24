@@ -4,9 +4,9 @@
 现有 test_detector.py 主要覆盖配置注入与 topk_n 截断；本文件补齐算法输出路径，
 用确定性构造数据验证每类异常的可检出性与正常样本的假阳性控制。
 """
+
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from anomaly_middleware.detector import ILLDetector
@@ -62,9 +62,12 @@ def test_update_garbled_state_threshold(det):
 # --------------------------------------------------------------------------- #
 def _vocab_tk2cat():
     """topk token id 映射多类别：3=hiragana,4=hangul,5=whitespace,6=punct,7=latin。"""
-    return {str(i): ["chinese_cjk", "japanese_hiragana", "korean_hangul",
-                     "whitespace", "punctuation", "english_latin"][i % 6]
-            for i in range(2, 20)}
+    return {
+        str(i): ["chinese_cjk", "japanese_hiragana", "korean_hangul", "whitespace", "punctuation", "english_latin"][
+            i % 6
+        ]
+        for i in range(2, 20)
+    }
 
 
 def test_detect_rare_character_with_vocab(det):
@@ -107,8 +110,7 @@ def test_short_normal_sequence_no_rare(det):
 def test_detect_garbled_no_vocab(det):
     """整窗 top1 logp 极低（<-5）占比 > 0.2 -> 乱码。长序列走滑窗。"""
     n = 140  # > stride=64，进入滑窗检测
-    topk = [{1000: -20.0, 1001: -21.0, 1002: -22.0, 1003: -23.0, 1004: -24.0}
-            for _ in range(n)]
+    topk = [{1000: -20.0, 1001: -21.0, 1002: -22.0, 1003: -23.0, 1004: -24.0} for _ in range(n)]
     tokens = [1000] * n
     res = det.detector(topk, tokens, topk_n=5)
     assert res.is_ill is True
@@ -162,8 +164,7 @@ def test_detect_repetition_trajectory_only(det):
 def test_detect_repetition_short_sequence_normal(det):
     """短序列无重复 -> 正常。"""
     topk = [{1: -0.1, 2: -0.2} for _ in range(20)]
-    res = det.detector(topk, [1, 2, 1, 2, 1, 2, 1, 2, 1, 2,
-                              1, 2, 1, 2, 1, 2, 1, 2, 1, 2], topk_n=2)
+    res = det.detector(topk, [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2], topk_n=2)
     assert res.is_ill is False
 
 
@@ -190,6 +191,5 @@ def test_detect_inf_value(det):
 def test_run_multi_request_isolation(det):
     nan_topk = [{1: float("nan")} for _ in range(5)]
     normal_topk = [{1: -0.1, 2: -0.2} for _ in range(5)]
-    results = det.run([normal_topk, nan_topk, normal_topk],
-                      [[1] * 5, [1] * 5, [1] * 5], topk_n=2)
+    results = det.run([normal_topk, nan_topk, normal_topk], [[1] * 5, [1] * 5, [1] * 5], topk_n=2)
     assert results == [[False, 0], [True, 4], [False, 0]]

@@ -3,16 +3,15 @@
 不依赖 transformers：用伪 tokenizer 模拟 get_vocab / vocab_size /
 backend_tokenizer.decoder.decode / tokenizer.decode。
 """
+
 from __future__ import annotations
 
 import pytest
 
 from anomaly_middleware.token_categorizer import (
-    generate_tk2cat,
     _get_decode_fn,
     _safe_decode,
-    categorize_token,
-    invert_vocab,
+    generate_tk2cat,
 )
 
 
@@ -43,9 +42,7 @@ class FakeTokenizer:
     def __init__(self, vocab, token_to_text, with_backend=True, raise_tokens=()):
         self._vocab = dict(vocab)
         self.vocab_size = max(vocab.values()) + 1
-        self.backend_tokenizer = (
-            _FakeBackend(token_to_text, raise_tokens) if with_backend else None
-        )
+        self.backend_tokenizer = _FakeBackend(token_to_text, raise_tokens) if with_backend else None
         self._token_to_text = token_to_text
 
     def get_vocab(self):
@@ -97,6 +94,7 @@ def test_generate_tk2cat_no_decode_path_raises():
 
         def get_vocab(self):
             return {"a": 0}
+
         # 无 backend_tokenizer，无 decode
 
     with pytest.raises(RuntimeError):

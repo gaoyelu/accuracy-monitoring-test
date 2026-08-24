@@ -1,16 +1,14 @@
 """token_resolver 单测：resolve 行为 + acquire_tokenizer（from_pretrained 主、/v1/models 兜底）。"""
+
 from __future__ import annotations
 
 import json
-
-import pytest
 
 from anomaly_middleware.token_resolver import (
     TokenTextResolver,
     acquire_tokenizer,
     parse_vllm_argv,
     parse_vllm_server_from_argv,
-    poll_model_root,
 )
 
 
@@ -215,9 +213,7 @@ async def test_acquire_tokenizer_explicit_first(monkeypatch):
     monkeypatch.setattr(tr, "_fetch_served_model_id", no_fetch)
     monkeypatch.setattr(tr, "_scan_hf_cache_candidates", lambda hint: [], raising=False)
 
-    tok = await acquire_tokenizer(
-        "Qwen3-0.6B", server=None, explicit="/data/Qwen3-0.6B"
-    )
+    tok = await acquire_tokenizer("Qwen3-0.6B", server=None, explicit="/data/Qwen3-0.6B")
     assert isinstance(tok, FakeTok)
     assert calls == ["/data/Qwen3-0.6B"]  # 只调用了 explicit，未碰 model_hint
 
@@ -237,7 +233,8 @@ async def test_acquire_tokenizer_argv_tokenizer_preferred(monkeypatch):
 
     monkeypatch.setattr(tr, "_from_pretrained", fake_from_pretrained)
     monkeypatch.setattr(
-        tr, "parse_vllm_argv",
+        tr,
+        "parse_vllm_argv",
         lambda: VllmArgvInfo(model="/argv/model", tokenizer="/argv/tok"),
     )
     monkeypatch.setattr(tr, "_scan_hf_cache_candidates", lambda hint: [], raising=False)
@@ -262,7 +259,8 @@ async def test_acquire_tokenizer_argv_model_when_no_tokenizer(monkeypatch):
 
     monkeypatch.setattr(tr, "_from_pretrained", fake_from_pretrained)
     monkeypatch.setattr(
-        tr, "parse_vllm_argv",
+        tr,
+        "parse_vllm_argv",
         lambda: VllmArgvInfo(model="/argv/model", tokenizer=None),
     )
     monkeypatch.setattr(tr, "_scan_hf_cache_candidates", lambda hint: [], raising=False)
@@ -275,6 +273,7 @@ async def test_acquire_tokenizer_argv_model_when_no_tokenizer(monkeypatch):
 async def test_acquire_tokenizer_all_fail_logs_error(monkeypatch, caplog):
     """全部失败 → 记录 ERROR 并提示设置 VLLM_ANOMALY_TOKENIZER_MODEL。"""
     import logging
+
     import anomaly_middleware.token_resolver as tr
 
     def boom(_p, **_k):
@@ -300,6 +299,7 @@ async def test_from_pretrained_sets_trust_remote_code(monkeypatch):
     """_from_pretrained 默认补 trust_remote_code=True（Qwen/GLM 自定义 tokenizer）。"""
     import sys
     import types
+
     import anomaly_middleware.token_resolver as tr
 
     captured = {}
@@ -324,6 +324,7 @@ async def test_from_pretrained_respects_explicit_trust_remote_code(monkeypatch):
     """调用方显式传 False 时不覆盖。"""
     import sys
     import types
+
     import anomaly_middleware.token_resolver as tr
 
     captured = {}
@@ -346,10 +347,17 @@ async def test_from_pretrained_respects_explicit_trust_remote_code(monkeypatch):
 def test_parse_vllm_argv_model_and_tokenizer():
     """`vllm serve <model> --tokenizer <path>` → 同时提取 model + tokenizer。"""
     argv = [
-        "vllm", "serve", "/data/Qwen3-0.6B",
-        "--tokenizer", "/data/tok",
-        "--port", "8008", "--served-model-name", "Qwen3-0.6B",
-        "--middleware", "anomaly_middleware.AnomalyMiddleware",
+        "vllm",
+        "serve",
+        "/data/Qwen3-0.6B",
+        "--tokenizer",
+        "/data/tok",
+        "--port",
+        "8008",
+        "--served-model-name",
+        "Qwen3-0.6B",
+        "--middleware",
+        "anomaly_middleware.AnomalyMiddleware",
     ]
     info = parse_vllm_argv(argv)
     assert info is not None
@@ -395,9 +403,13 @@ def test_parse_vllm_argv_non_serve_returns_none():
 def test_parse_vllm_argv_value_flag_does_not_steal_model():
     """--served-model-name my-alias 中的 my-alias 不应被误识别为 model。"""
     argv = [
-        "vllm", "serve", "/data/Qwen3-0.6B",
-        "--served-model-name", "my-alias",
-        "--port", "8008",
+        "vllm",
+        "serve",
+        "/data/Qwen3-0.6B",
+        "--served-model-name",
+        "my-alias",
+        "--port",
+        "8008",
     ]
     info = parse_vllm_argv(argv)
     assert info is not None
@@ -407,17 +419,27 @@ def test_parse_vllm_argv_value_flag_does_not_steal_model():
 def test_parse_vllm_server_from_argv_backward_compat():
     """向后兼容封装：仅返回 (host, port)。"""
     argv = [
-        "python", "serve", "/data/Qwen3-0.6B",
-        "--port", "8008", "--served-model-name", "Qwen3-0.6B",
-        "--middleware", "anomaly_middleware.AnomalyMiddleware",
+        "python",
+        "serve",
+        "/data/Qwen3-0.6B",
+        "--port",
+        "8008",
+        "--served-model-name",
+        "Qwen3-0.6B",
+        "--middleware",
+        "anomaly_middleware.AnomalyMiddleware",
     ]
     assert parse_vllm_server_from_argv(argv) == ("127.0.0.1", 8008)
 
 
 def test_parse_vllm_server_from_argv_host_and_eq_form():
     argv = [
-        "python", "serve", "/data/m",
-        "--host", "0.0.0.0", "--port=9000",
+        "python",
+        "serve",
+        "/data/m",
+        "--host",
+        "0.0.0.0",
+        "--port=9000",
     ]
     assert parse_vllm_server_from_argv(argv) == ("0.0.0.0", 9000)
 
@@ -431,12 +453,11 @@ def test_poll_model_root(monkeypatch):
     """轮询直到 /v1/models 返回 root。"""
     import json
     import urllib.request
+
     import anomaly_middleware.token_resolver as tr
 
     state = {"n": 0}
-    payload = json.dumps(
-        {"data": [{"id": "Qwen3-0.6B", "root": "/home/gyl/models/Qwen3-0.6B"}]}
-    ).encode()
+    payload = json.dumps({"data": [{"id": "Qwen3-0.6B", "root": "/home/gyl/models/Qwen3-0.6B"}]}).encode()
 
     class FakeResp:
         status = 200
@@ -456,15 +477,13 @@ def test_poll_model_root(monkeypatch):
         return FakeResp()
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-    assert (
-        tr.poll_model_root(("127.0.0.1", 8008), timeout=5, delay=0)
-        == "/home/gyl/models/Qwen3-0.6B"
-    )
+    assert tr.poll_model_root(("127.0.0.1", 8008), timeout=5, delay=0) == "/home/gyl/models/Qwen3-0.6B"
     assert state["n"] == 1  # 首次即成功，不多轮
 
 
 def test_poll_model_root_gives_up_on_timeout(monkeypatch):
     import urllib.request
+
     import anomaly_middleware.token_resolver as tr
 
     def fake_urlopen(url, timeout=0):

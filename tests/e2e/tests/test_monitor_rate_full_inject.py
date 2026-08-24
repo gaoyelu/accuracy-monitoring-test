@@ -35,22 +35,16 @@ def custom_metrics(custom_service):
 @pytest.mark.full
 @pytest.mark.nightly
 @pytest.mark.inject
-async def test_monitor_rate_full_inject(
-    custom_http, custom_metrics, served_name, injector, anomaly_data
-):
+async def test_monitor_rate_full_inject(custom_http, custom_metrics, served_name, injector, anomaly_data):
     if not injector.health_check():
         pytest.skip("injector not available")
 
     injector.set_override("run_async", anomaly_data["rare_character"], count=1)
 
     before = custom_metrics.get_counter("vllm_anomaly_requests_total")
-    before_detected = custom_metrics.get_counter(
-        f'vllm_anomaly_detected_total{{ill_type="1",model="{served_name}"}}'
-    )
+    before_detected = custom_metrics.get_counter(f'vllm_anomaly_detected_total{{ill_type="1",model="{served_name}"}}')
 
-    resp = await custom_http.chat(
-        messages=[{"role": "user", "content": "Hello"}], max_tokens=32
-    )
+    resp = await custom_http.chat(messages=[{"role": "user", "content": "Hello"}], max_tokens=32)
     assert resp.status_code == 200
 
     custom_metrics.wait_for(
@@ -62,7 +56,5 @@ async def test_monitor_rate_full_inject(
     after = custom_metrics.get_counter("vllm_anomaly_requests_total")
     assert after - before == 1
 
-    gauge = custom_metrics.get_gauge(
-        f'vllm_anomaly_last_rare_character{{model="{served_name}"}}'
-    )
+    gauge = custom_metrics.get_gauge(f'vllm_anomaly_last_rare_character{{model="{served_name}"}}')
     assert gauge == 1

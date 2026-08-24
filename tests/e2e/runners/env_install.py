@@ -4,8 +4,15 @@ import subprocess
 import sys
 
 _TEST_DEPS = [
-    "pytest", "pytest-asyncio", "httpx", "openpyxl", "jinja2",
-    "pyyaml", "numpy", "psutil", "openai",
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+    "openpyxl",
+    "jinja2",
+    "pyyaml",
+    "numpy",
+    "psutil",
+    "openai",
 ]
 
 

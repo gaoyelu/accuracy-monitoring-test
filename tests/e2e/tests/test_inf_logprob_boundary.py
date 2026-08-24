@@ -10,7 +10,11 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.nightly
 @pytest.mark.inject
 async def test_inf_logprob_boundary(
-    vllm_service_b, injector, http_client, metrics_client, anomaly_data,
+    vllm_service_b,
+    injector,
+    http_client,
+    metrics_client,
+    anomaly_data,
 ):
     if not injector.health_check():
         pytest.skip("injector infrastructure not available")

@@ -3,19 +3,19 @@
 纯 ASGI 中间件（非 Starlette BaseHTTPMiddleware），SSE 增量转发，不缓冲整流。
 检测 fire-and-forget，客户端永远不等待检测。
 """
+
 from __future__ import annotations
 
 import json
 import random
-import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, List, Optional, Set, Tuple
 
 import numpy as np
 
-from .env import PluginConfig, resolve_config_path
 from .detector_runner import DetectorRunner, schedule_detection
+from .env import PluginConfig, resolve_config_path
 from .extractor import (
     OriginalParams,
     SSEStreamProcessor,
@@ -65,9 +65,7 @@ async def _read_all_body(receive: Callable[[], Awaitable[dict]]) -> bytes:
     return bytes(body)
 
 
-def _make_replay_receive(
-    original_receive: Callable[[], Awaitable[dict]], body: bytes
-) -> Callable[[], Awaitable[dict]]:
+def _make_replay_receive(original_receive: Callable[[], Awaitable[dict]], body: bytes) -> Callable[[], Awaitable[dict]]:
     """首次返回合成单条 http.request(body, more_body=False)；后续委托原始 receive()。
 
     绝不返回空 body 的 http.request（vLLM 会重复处理请求）。
@@ -144,9 +142,7 @@ class ResponseInterceptor:
 
     async def _on_start(self, message: dict) -> None:
         headers = [list(h) for h in message.get("headers", [])]
-        headers.append(
-            [b"x-anomaly-request-id", self._ctx.request_id.encode("latin-1")]
-        )
+        headers.append([b"x-anomaly-request-id", self._ctx.request_id.encode("latin-1")])
         msg = dict(message)
         msg["headers"] = headers
         ct = b""
@@ -156,9 +152,7 @@ class ResponseInterceptor:
                 break
         self._is_streaming = b"text/event-stream" in ct
         if self._is_streaming:
-            self._sse = SSEStreamProcessor(
-                self._ctx.is_chat, self._ctx.orig, self._ctx.top_logprobs, self._resolver
-            )
+            self._sse = SSEStreamProcessor(self._ctx.is_chat, self._ctx.orig, self._ctx.top_logprobs, self._resolver)
             await self._send(msg)  # 流式立即发 start
         else:
             self._start_msg = msg  # 非流式缓冲，发 body 前 patch CL 再发
@@ -177,16 +171,12 @@ class ResponseInterceptor:
         out = self._sse.feed(body)
         if more:
             if out:
-                await self._send(
-                    {"type": "http.response.body", "body": out, "more_body": True}
-                )
+                await self._send({"type": "http.response.body", "body": out, "more_body": True})
             return
         # 终端块
         tail = self._sse.flush()
         final = (out or b"") + tail
-        await self._send(
-            {"type": "http.response.body", "body": final, "more_body": False}
-        )
+        await self._send({"type": "http.response.body", "body": final, "more_body": False})
         self._finished = True
         self._maybe_schedule_detection()
 
@@ -196,9 +186,7 @@ class ResponseInterceptor:
             return
         final = self._process_complete()
         await self._send_start(final)
-        await self._send(
-            {"type": "http.response.body", "body": final, "more_body": False}
-        )
+        await self._send({"type": "http.response.body", "body": final, "more_body": False})
         self._finished = True
         self._maybe_schedule_detection()
 
@@ -211,18 +199,18 @@ class ResponseInterceptor:
         if not isinstance(data, dict):
             return raw
         if self._ctx.is_chat:
-            self._detection_results = extract_chat_response(
-                data, self._ctx.top_logprobs
-            )
+            self._detection_results = extract_chat_response(data, self._ctx.top_logprobs)
             strip_chat_response(
-                data, self._ctx.orig, self._resolver,
+                data,
+                self._ctx.orig,
+                self._resolver,
             )
         else:
-            self._detection_results = extract_completions_response(
-                data, self._ctx.top_logprobs
-            )
+            self._detection_results = extract_completions_response(data, self._ctx.top_logprobs)
             strip_completions_response(
-                data, self._ctx.orig, self._resolver,
+                data,
+                self._ctx.orig,
+                self._resolver,
                 recompute_text_offset=True,
             )
         return json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -246,11 +234,7 @@ class ResponseInterceptor:
         await self._send(out)
 
     def _maybe_schedule_detection(self) -> None:
-        if (
-            not self._ctx.will_detect
-            or self._detection_scheduled
-            or self._runner is None
-        ):
+        if not self._ctx.will_detect or self._detection_scheduled or self._runner is None:
             return
         self._detection_scheduled = True
         try:
@@ -307,7 +291,8 @@ class AnomalyMiddleware:
         cfg_path = resolve_config_path()
 
         # ④ 加载 tokenizer — fail-fast on failure
-        from .token_resolver import acquire_tokenizer_sync, TokenTextResolver
+        from .token_resolver import TokenTextResolver, acquire_tokenizer_sync
+
         tok = acquire_tokenizer_sync(explicit=self.config.tokenizer_model)
         self._resolver = TokenTextResolver(tok)
         logger.info("tokenizer 已加载")
@@ -315,18 +300,18 @@ class AnomalyMiddleware:
         # ⑤ 生成 tk2cat — soft degrade
         try:
             from .token_categorizer import generate_tk2cat
+
             self._tk2cat, self._vocab_size = generate_tk2cat(tok)
             logger.info(
                 "tk2cat 已加载 (vocab_size=%d)",
                 self._vocab_size,
             )
         except Exception as exc:
-            logger.warning(
-                "tk2cat 生成失败, 检测降级为无词表: %s", exc
-            )
+            logger.warning("tk2cat 生成失败, 检测降级为无词表: %s", exc)
 
         # ⑥ eager 构造 ILLDetector — fail-fast on failure
         from .detector import ILLDetector
+
         ILLDetector(cfg_path)
 
         # ⑦ 构造 DetectorRunner（含 ProcessPoolExecutor）
@@ -403,12 +388,8 @@ class AnomalyMiddleware:
             [b"content-type", METRICS_CONTENT_TYPE.encode("latin-1")],
             [b"content-length", str(len(body)).encode("latin-1")],
         ]
-        await send(
-            {"type": "http.response.start", "status": 200, "headers": headers}
-        )
-        await send(
-            {"type": "http.response.body", "body": body, "more_body": False}
-        )
+        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await send({"type": "http.response.body", "body": body, "more_body": False})
 
     def shutdown(self) -> None:
         for t in list(self._pending_tasks):
