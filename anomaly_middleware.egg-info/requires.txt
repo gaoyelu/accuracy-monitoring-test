@@ -1,0 +1,11 @@
+prometheus_client>=0.16
+pyyaml>=5.4
+numpy>=1.20
+httpx>=0.24
+colorlog>=6.0
+
+[test]
+pytest>=7.0
+pytest-asyncio>=0.21
+httpx>=0.24
+anyio>=3.0
