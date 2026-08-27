@@ -56,14 +56,13 @@ jobs:
 
       - name: Install project + test deps
         run: |
-          PYTHON_CMD="python"
-          PIP_CMD="pip"
           if [ "${{ contains(inputs.runner, 'self-hosted') }}" = "true" ]; then
-            PYTHON_CMD="python3"
-            PIP_CMD="pip3"
+            pip3 install -e ".[test]"
+            pip3 install pytest pytest-asyncio httpx anyio pyyaml jinja2
+          else
+            pip install -e ".[test]"
+            pip install pytest pytest-asyncio httpx anyio pyyaml jinja2
           fi
-          $PIP_CMD install -e ".[test]"
-          $PIP_CMD install pytest pytest-asyncio httpx anyio pyyaml jinja2
 
       - name: Run E2E tests (tier=${{ inputs.tier }})
         env:
