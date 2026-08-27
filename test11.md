@@ -8,4 +8,5 @@
 - feat: add new feature
 - fix(auth): fix login bug
 - docs: update README
+- test
 ```
