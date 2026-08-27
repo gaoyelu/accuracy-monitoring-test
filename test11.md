@@ -8,4 +8,5 @@ PR title需要遵循Conventional Commits规范：
   - feat: add new feature
   - fix(auth): fix login bug
   - docs: update README
+  - test
 ```
