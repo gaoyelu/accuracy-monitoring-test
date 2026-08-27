@@ -32,13 +32,13 @@ jobs:
     if: ${{ always() && needs.lint.result == 'success' }}
     uses: ./.github/workflows/_unit_test.yaml
     with:
-      runner: '["self-hosted", "linux", "arm64", "e2e"]'
+      runner: '["ubuntu-latest"]'
       python-version: "3.10"
 
   e2e-light:
     name: E2E lightweight
-    needs: unit-test
-    if: ${{ always() && needs.unit-test.result == 'success' }}
+    needs: lint
+    if: ${{ always() && needs.lint.result == 'success' }}
     uses: ./.github/workflows/_e2e_test.yaml
     with:
       runner: '["self-hosted", "linux", "arm64", "e2e"]'
@@ -46,9 +46,9 @@ jobs:
 
   e2e-full:
     name: E2E full
-    needs: e2e-light
+    needs: lint
     if: >-
-      ${{ always() && needs.e2e-light.result == 'success'
+      ${{ always() && needs.lint.result == 'success'
           && github.event_name == 'pull_request'
           && (contains(github.event.pull_request.labels.*.name, 'ready')
               || contains(github.event.pull_request.labels.*.name, 'ready-for-test')) }}
