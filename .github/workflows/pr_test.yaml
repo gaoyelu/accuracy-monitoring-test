@@ -37,8 +37,8 @@ jobs:
 
   e2e-light:
     name: E2E lightweight
-    needs: lint
-    if: ${{ always() && needs.lint.result == 'success' }}
+    needs: unit-test
+    if: ${{ always() && needs.unit-test.result == 'success' }}
     uses: ./.github/workflows/_e2e_test.yaml
     with:
       runner: '["self-hosted", "linux", "arm64", "e2e"]'
@@ -46,9 +46,9 @@ jobs:
 
   e2e-full:
     name: E2E full
-    needs: lint
+    needs: e2e-light
     if: >-
-      ${{ always() && needs.lint.result == 'success'
+      ${{ always() && needs.e2e-light.result == 'success'
           && github.event_name == 'pull_request'
           && (contains(github.event.pull_request.labels.*.name, 'ready')
               || contains(github.event.pull_request.labels.*.name, 'ready-for-test')) }}
