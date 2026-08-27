@@ -35,9 +35,16 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Setup Python
+        if: ${{ !contains(inputs.runner, 'self-hosted') }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
+
+      - name: Check Python (self-hosted)
+        if: ${{ contains(inputs.runner, 'self-hosted') }}
+        run: |
+          python3 --version
+          which python3
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -49,15 +56,25 @@ jobs:
 
       - name: Install project + test deps
         run: |
-          pip install -e ".[test]"
-          pip install pytest pytest-asyncio httpx anyio pyyaml jinja2
+          PYTHON_CMD="python"
+          PIP_CMD="pip"
+          if [ "${{ contains(inputs.runner, 'self-hosted') }}" = "true" ]; then
+            PYTHON_CMD="python3"
+            PIP_CMD="pip3"
+          fi
+          $PIP_CMD install -e ".[test]"
+          $PIP_CMD install pytest pytest-asyncio httpx anyio pyyaml jinja2
 
       - name: Run E2E tests (tier=${{ inputs.tier }})
         env:
           E2E_TIER: ${{ inputs.tier }}
         run: |
           set -o pipefail
-          python tests/e2e/run_e2e.py \
+          PYTHON_CMD="python"
+          if [ "${{ contains(inputs.runner, 'self-hosted') }}" = "true" ]; then
+            PYTHON_CMD="python3"
+          fi
+          $PYTHON_CMD tests/e2e/run_e2e.py \
             --tier "$E2E_TIER" \
             --local \
             2>&1 | tee e2e_run.log
