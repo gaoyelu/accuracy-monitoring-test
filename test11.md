@@ -7,3 +7,17 @@
 - feat: add new feature
 - fix(auth): fix login bug
 - docs: update README
+
+
+
+curl http://127.0.0.1:8008/v1/chat/completions \
+-H "Content-Type: application/json" \
+-X POST \
+-d '{
+"model": "Qwen3-0.6B",
+"temperature": 0,
+"messages": [
+{"role": "system", "content": "You are a helpful assistant."},
+{"role": "user", "content": "你是谁"}
+]
+}'

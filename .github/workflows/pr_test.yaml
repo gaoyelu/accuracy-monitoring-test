@@ -27,18 +27,13 @@ jobs:
     uses: ./.github/workflows/_pre_commit.yaml
 
   unit-test:
-    name: Unit tests (${{ matrix.runner }})
+    name: Unit tests
     needs: lint
     if: ${{ always() && needs.lint.result == 'success' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-latest]
-        python-version: ["3.10"]
     uses: ./.github/workflows/_unit_test.yaml
     with:
-      runner: ${{ matrix.runner }}
-      python-version: ${{ matrix.python-version }}
+      runner: '["self-hosted", "linux", "arm64", "e2e"]'
+      python-version: "3.10"
 
   e2e-light:
     name: E2E lightweight
@@ -46,7 +41,7 @@ jobs:
     if: ${{ always() && needs.lint.result == 'success' }}
     uses: ./.github/workflows/_e2e_test.yaml
     with:
-      runner: '["ubuntu-latest"]'
+      runner: '["self-hosted", "linux", "arm64", "e2e"]'
       tier: lightweight
 
   e2e-full:
@@ -54,13 +49,12 @@ jobs:
     needs: lint
     if: >-
       ${{ always() && needs.lint.result == 'success'
-          && (github.event_name == 'push'
-              || (github.event_name == 'pull_request'
-                  && (contains(github.event.pull_request.labels.*.name, 'ready')
-                      || contains(github.event.pull_request.labels.*.name, 'ready-for-test')))) }}
+          && github.event_name == 'pull_request'
+          && (contains(github.event.pull_request.labels.*.name, 'ready')
+              || contains(github.event.pull_request.labels.*.name, 'ready-for-test')) }}
     uses: ./.github/workflows/_e2e_test.yaml
     with:
-      runner: '["ubuntu-latest"]'
+      runner: '["self-hosted", "linux", "arm64", "e2e"]'
       tier: full
 
   ci-gate:

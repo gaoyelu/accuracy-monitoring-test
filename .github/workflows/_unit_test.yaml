@@ -19,8 +19,8 @@ permissions:
 
 jobs:
   unit-test:
-    name: Unit tests (${{ inputs.runner }}, py${{ inputs.python-version }})
-    runs-on: ${{ inputs.runner }}
+    name: Unit tests (py${{ inputs.python-version }})
+    runs-on: ${{ fromJSON(inputs.runner) }}
     timeout-minutes: 15
     steps:
       - name: Checkout
