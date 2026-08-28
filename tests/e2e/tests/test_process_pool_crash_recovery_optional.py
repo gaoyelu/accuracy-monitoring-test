@@ -9,12 +9,14 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def crash_service(vllm_service_factory, model_yaml):
-    return vllm_service_factory({
-        "model": model_yaml,
-        "middleware": True,
-        "env": {"VLLM_ANOMALY_DETECTOR_WORKERS": "4"},
-        "with_injector": False,
-    })
+    return vllm_service_factory(
+        {
+            "model": model_yaml,
+            "middleware": True,
+            "env": {"VLLM_ANOMALY_DETECTOR_WORKERS": "4"},
+            "with_injector": False,
+        }
+    )
 
 
 @pytest.fixture
@@ -35,14 +37,14 @@ def crash_metrics(crash_service):
 @pytest.mark.nightly
 @pytest.mark.xfail(reason="inherently flaky process-kill test", strict=False)
 async def test_process_pool_crash_recovery_optional(
-    crash_service, crash_http, crash_metrics,
+    crash_service,
+    crash_http,
+    crash_metrics,
 ):
     psutil = pytest.importorskip("psutil")
     before_errors = crash_metrics.get_counter("vllm_anomaly_detection_errors_total")
     messages = [{"role": "user", "content": "Hello"}]
-    task = asyncio.gather(
-        *(crash_http.chat(messages=messages) for _ in range(4))
-    )
+    task = asyncio.gather(*(crash_http.chat(messages=messages) for _ in range(4)))
     await asyncio.sleep(0.5)
     try:
         parent = psutil.Process(crash_service.pid)

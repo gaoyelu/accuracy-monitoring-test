@@ -1,0 +1,86 @@
+name: E2E Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+concurrency:
+  group: e2e-command-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: ${{ github.event.issue.pull_request != null && startsWith(github.event.comment.body, '/e2e') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+    steps:
+      - name: Resolve PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.issue.number }}
+        run: |
+          set -eu
+          PR_JSON=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUM}")
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+          PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login')
+          {
+            echo "pr_number=${PR_NUM}"
+            echo "head_sha=${HEAD_SHA}"
+            echo "pr_author=${PR_AUTHOR}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check authorization
+        id: auth
+        env:
+          ACTOR: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
+          ASSOC: ${{ github.event.comment.author_association }}
+        run: |
+          set -eu
+          if [ "${ACTOR,,}" = "${PR_AUTHOR,,}" ]; then
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR)
+              echo "authorized=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "authorized=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Reject unauthorized
+        if: always() && steps.auth.outputs.authorized != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e denied - only PR author or triage+ can trigger."
+
+      - name: Notify trigger
+        if: always() && steps.auth.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e triggered: E2E full suite will start on self-hosted runner."
+
+  e2e-full:
+    needs: resolve
+    if: always() && needs.resolve.outputs.authorized == 'true'
+    uses: ./.github/workflows/_e2e_test.yaml
+    with:
+      runner: '["self-hosted", "linux", "arm64", "e2e"]'
+      tier: full
+      ref: ${{ needs.resolve.outputs.head_sha }}

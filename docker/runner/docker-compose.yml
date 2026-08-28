@@ -1,0 +1,27 @@
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: github-runner-e2e
+    restart: unless-stopped
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-gaoyelu/accuracy-monitoring-test}
+      - RUNNER_NAME=${RUNNER_NAME:-e2e-runner-arm64}
+      - RUNNER_LABELS=${RUNNER_LABELS:-self-hosted,linux,arm64,e2e}
+    volumes:
+      - runner-work:/home/runner/actions-runner/_work
+      - /home:/home
+    devices:
+      - /dev/davinci0:/dev/davinci0
+      - /dev/davinci1:/dev/davinci1
+      - /dev/davinci2:/dev/davinci2
+      - /dev/davinci_manager:/dev/davinci_manager
+      - /dev/devmm_svm:/dev/devmm_svm
+      - /dev/hisi_hdc:/dev/hisi_hdc
+    privileged: true
+    network_mode: host
+
+volumes:
+  runner-work:

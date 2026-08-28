@@ -1,4 +1,5 @@
 """pytest fixtures：httpx ASGI 客户端工厂 + 检测任务 drain 助手。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -13,9 +14,10 @@ _PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
-from anomaly_middleware import AnomalyMiddleware  # noqa: E402
-from anomaly_middleware.env import PluginConfig  # noqa: E402
-from _helpers import FakeVLLM  # noqa: E402
+from _helpers import FakeVLLM
+
+from anomaly_middleware import AnomalyMiddleware
+from anomaly_middleware.env import PluginConfig
 
 
 @pytest.fixture
@@ -49,9 +51,7 @@ async def client_factory():
         mw._runner_inited = False
         mw._resolver = None
         mw._resolver_inited = True  # 默认跳过 _ensure_resolver（e2e 默认 resolver 不可用）
-        client = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=mw), base_url="http://test"
-        )
+        client = httpx.AsyncClient(transport=httpx.ASGITransport(app=mw), base_url="http://test")
         created_clients.append(client)
         created_mws.append(mw)
         return client, fake, mw
@@ -68,6 +68,4 @@ async def drain(mw, timeout: float = 10.0) -> None:
     tasks = list(mw._pending_tasks)
     if not tasks:
         return
-    await asyncio.wait_for(
-        asyncio.gather(*tasks, return_exceptions=True), timeout
-    )
+    await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout)

@@ -19,7 +19,7 @@ class SSEObserver:
             for line in block.split(b"\n"):
                 if not line.startswith(b"data: "):
                     continue
-                data = line[len(b"data: "):].strip()
+                data = line[len(b"data: ") :].strip()
                 if data == b"[DONE]":
                     self.has_done = True
                     parsed.append({"done": True})

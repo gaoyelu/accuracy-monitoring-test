@@ -42,14 +42,10 @@ async def test_latency_overhead(vllm_service_factory, model_yaml, served_name):
         "return_tokens_as_token_ids": True,
     }
 
-    no_mw = vllm_service_factory(
-        {"model": model_yaml, "middleware": False, "env": {}, "with_injector": False}
-    )
+    no_mw = vllm_service_factory({"model": model_yaml, "middleware": False, "env": {}, "with_injector": False})
     baseline = await _measure_latency(_make_client(no_mw, served_name), n=10, **injected)
 
-    mw = vllm_service_factory(
-        {"model": model_yaml, "middleware": True, "env": {}, "with_injector": True}
-    )
+    mw = vllm_service_factory({"model": model_yaml, "middleware": True, "env": {}, "with_injector": True})
     with_mw = await _measure_latency(_make_client(mw, served_name), n=10)
 
     overhead = with_mw - baseline

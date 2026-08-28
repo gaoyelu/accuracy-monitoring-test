@@ -14,16 +14,12 @@ class OpenAISdkClient:
         self._served_name = served_name
 
     def chat(self, messages: list, **kwargs) -> dict:
-        resp = self._client.chat.completions.create(
-            model=self._served_name, messages=messages, **kwargs
-        )
+        resp = self._client.chat.completions.create(model=self._served_name, messages=messages, **kwargs)
         return resp.model_dump()
 
     def chat_stream(self, messages: list, **kwargs) -> list:
         chunks = []
-        stream = self._client.chat.completions.create(
-            model=self._served_name, messages=messages, stream=True, **kwargs
-        )
+        stream = self._client.chat.completions.create(model=self._served_name, messages=messages, stream=True, **kwargs)
         for chunk in stream:
             chunks.append(chunk.model_dump())
         return chunks

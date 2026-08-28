@@ -6,6 +6,7 @@ logger 名称用蓝色。依赖 colorlog，Windows 终端 / Win11 / VS Code 均�
 
 注意：保持 propagate=True，pytest caplog 依赖记录传播到 root handler。
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,7 +45,7 @@ def get_logger(level: int = logging.DEBUG) -> logging.Logger:
                 colorlog.ColoredFormatter(
                     "%(log_color)s%(levelname)s%(reset)s %(asctime)s %(blue)s[%(name)s]%(reset)s %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S",
-                    log_colors=_log_colors
+                    log_colors=_log_colors,
                 )
             )
             logger.addHandler(handler)

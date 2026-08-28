@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import os
 import time
+from typing import Optional
 
 try:
     import psutil
+
     _HAS_PSUTIL = True
 except ImportError:
     _HAS_PSUTIL = False
 
 
-def get_rss_mb(pid: int = None) -> float:
+def get_rss_mb(pid: Optional[int] = None) -> float:
     if pid is None:
         pid = os.getpid()
     if _HAS_PSUTIL:
@@ -20,9 +22,7 @@ def get_rss_mb(pid: int = None) -> float:
             pass
     status_path = f"/proc/{pid}/status"
     if not os.path.exists(status_path):
-        raise RuntimeError(
-            f"cannot get RSS for pid {pid}: psutil unavailable and /proc not present"
-        )
+        raise RuntimeError(f"cannot get RSS for pid {pid}: psutil unavailable and /proc not present")
     with open(status_path) as f:
         for line in f:
             if line.startswith("VmRSS:"):

@@ -18,13 +18,9 @@ async def test_transparency_completions_stream(http_client, baseline_store):
 
     for variant, extra in COMPLETIONS_VARIANTS.items():
         events = []
-        async for event in http_client.completions_stream(
-            prompt=prompt, **kwargs, **extra
-        ):
+        async for event in http_client.completions_stream(prompt=prompt, **kwargs, **extra):
             events.append(event)
 
         assert events and events[-1].get("done"), f"completions stream v{variant}"
         baseline = baseline_store.load_completions_stream(variant)
-        assert_stream_transparent(
-            events, baseline, note=f"completions stream v{variant}"
-        )
+        assert_stream_transparent(events, baseline, note=f"completions stream v{variant}")

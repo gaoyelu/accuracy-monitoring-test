@@ -13,11 +13,7 @@ pytestmark = pytest.mark.asyncio
 def detector_missing_service(vllm_service_factory, model_yaml):
     workspace = tempfile.mkdtemp(prefix="e2e_no_detector_")
     try:
-        mw_src = os.path.normpath(
-            os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "anomaly_middleware"
-            )
-        )
+        mw_src = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "anomaly_middleware"))
         shutil.copytree(mw_src, os.path.join(workspace, "anomaly_middleware"))
 
         service = vllm_service_factory(
@@ -27,9 +23,7 @@ def detector_missing_service(vllm_service_factory, model_yaml):
                 "env": {},
                 "with_injector": False,
                 "expect_fail": True,
-                "fail_fast_timeout": float(
-                    model_yaml.get("startup_timeout_sec", 600)
-                ),
+                "fail_fast_timeout": float(model_yaml.get("startup_timeout_sec", 600)),
                 "workspace": workspace,
             }
         )

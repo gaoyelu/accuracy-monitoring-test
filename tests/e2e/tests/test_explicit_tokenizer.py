@@ -37,9 +37,7 @@ def custom_metrics(custom_service):
 async def test_explicit_tokenizer(custom_http, custom_metrics):
     before = custom_metrics.get_counter("vllm_anomaly_requests_total")
 
-    resp = await custom_http.chat(
-        messages=[{"role": "user", "content": "Hello"}], max_tokens=32
-    )
+    resp = await custom_http.chat(messages=[{"role": "user", "content": "Hello"}], max_tokens=32)
     assert resp.status_code == 200
 
     custom_metrics.wait_for(

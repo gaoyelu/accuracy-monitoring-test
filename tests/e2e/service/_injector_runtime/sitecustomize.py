@@ -1,5 +1,6 @@
 """运行期注入钩子。仅在 vLLM 子进程启动、且 VLLM_ANOMALY_E2E_INJECTOR 已设时生效。
 生产环境永不设此 env，永不加载此文件 → 零生产影响。"""
+
 import os
 import sys
 
@@ -13,8 +14,10 @@ if _INJECTOR_URL:
             patch_extractors,
             patch_sse_processor,
         )
+
         from anomaly_middleware import extractor, middleware
         from anomaly_middleware.detector_runner import DetectorRunner
+
         if not getattr(DetectorRunner, "_e2e_patched", False):
             patch_detector_runner(DetectorRunner, _INJECTOR_URL)
             DetectorRunner._e2e_patched = True

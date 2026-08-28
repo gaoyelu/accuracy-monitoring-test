@@ -7,6 +7,7 @@
 - 检测任务：fire-and-forget asyncio.create_task，异常全捕获计 error，不影响客户端。
 - 进程池崩溃：BrokenProcessPool → 重建 + 计 error + log。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,12 +45,16 @@ def _detect_sync(metadata: dict):
         off = metadata["offsets"]
         shapes = metadata["shapes"]
         logprobs = np.ndarray(
-            shapes["logprobs"], buffer=shm.buf,
-            offset=off["logprobs"], dtype=np.float32,
+            shapes["logprobs"],
+            buffer=shm.buf,
+            offset=off["logprobs"],
+            dtype=np.float32,
         )
         token_ids = np.ndarray(
-            shapes["token_ids"], buffer=shm.buf,
-            offset=off["token_ids"], dtype=np.int32,
+            shapes["token_ids"],
+            buffer=shm.buf,
+            offset=off["token_ids"],
+            dtype=np.int32,
         )
         det = _worker_state["detector"]
         topk_n = _worker_state["topk_n"]
@@ -81,10 +86,13 @@ def _build_shared_memory(
 
     # 变长候选 padding 到 max_tokens
     logprobs_padded = np.full(
-        (num_choices, max_tokens, topk_n), -100.0, dtype=np.float32,
+        (num_choices, max_tokens, topk_n),
+        -100.0,
+        dtype=np.float32,
     )
     token_ids_padded = np.zeros(
-        (num_choices, max_tokens, topk_n), dtype=np.int32,
+        (num_choices, max_tokens, topk_n),
+        dtype=np.int32,
     )
     for i, (lp, tid) in enumerate(zip(logprobs_list, token_ids_list)):
         n = choice_lengths[i]
@@ -103,11 +111,15 @@ def _build_shared_memory(
 
     # 写入数组
     np.ndarray(
-        logprobs_padded.shape, buffer=shm.buf, dtype=np.float32,
+        logprobs_padded.shape,
+        buffer=shm.buf,
+        dtype=np.float32,
     )[:] = logprobs_padded
     np.ndarray(
-        token_ids_padded.shape, buffer=shm.buf,
-        offset=lp_aligned, dtype=np.int32,
+        token_ids_padded.shape,
+        buffer=shm.buf,
+        offset=lp_aligned,
+        dtype=np.int32,
     )[:] = token_ids_padded
 
     metadata = {
@@ -156,7 +168,9 @@ class DetectorRunner:
         try:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
-                self._executor, _detect_sync, metadata,
+                self._executor,
+                _detect_sync,
+                metadata,
             )
         except BrokenProcessPool:
             self._rebuild_pool()
@@ -175,8 +189,10 @@ class DetectorRunner:
             max_workers=self._max_workers,
             initializer=_worker_init,
             initargs=(
-                self._config_path, self._tk2cat,
-                self._vocab_size, self._topk_n,
+                self._config_path,
+                self._tk2cat,
+                self._vocab_size,
+                self._topk_n,
             ),
         )
         logger.warning("检测进程池已重建")
@@ -215,7 +231,9 @@ def schedule_detection(
             except Exception as exc:
                 logger.error(
                     "检测失败 request_id=%s model=%s: %s",
-                    request_id, model, exc,
+                    request_id,
+                    model,
+                    exc,
                 )
                 metrics.record_error()
 

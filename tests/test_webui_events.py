@@ -1,4 +1,5 @@
 """events 单元测试：相邻快照增量合成、计数器回绕、多候选独立事件、基线语义。"""
+
 from __future__ import annotations
 
 from webui.events import AnomalyEvent, EventSynthesizer, Snapshot, ill_type_name
@@ -14,18 +15,15 @@ def test_ill_type_name_mapping():
 
 def test_first_snapshot_is_baseline_only():
     s = EventSynthesizer()
-    snap = Snapshot(instance="a", ts=1.0, requests=5,
-                    detected={(2, "m", "0"): 1})
+    snap = Snapshot(instance="a", ts=1.0, requests=5, detected={(2, "m", "0"): 1})
     assert s.process(snap) is None
     assert s.process(snap) is not None  # 第二次才有增量
 
 
 def test_delta_synthesis_counts():
     s = EventSynthesizer()
-    prev = Snapshot(instance="a", ts=1.0, requests=10,
-                    detected={(2, "m", "0"): 2})
-    cur = Snapshot(instance="a", ts=2.0, requests=13,
-                   detected={(2, "m", "0"): 5, (1, "m", "1"): 1})
+    prev = Snapshot(instance="a", ts=1.0, requests=10, detected={(2, "m", "0"): 2})
+    cur = Snapshot(instance="a", ts=2.0, requests=13, detected={(2, "m", "0"): 5, (1, "m", "1"): 1})
     d = s.process(prev)
     assert d is None
     d = s.process(cur)
@@ -54,10 +52,8 @@ def test_multiple_choice_independent_events():
 def test_counter_wrap_ignores_negative():
     """实例重启/回绕：值变小 → 忽略负增量，不产生事件。"""
     s = EventSynthesizer()
-    s.process(Snapshot(instance="a", ts=1.0, requests=1000,
-                       detected={(2, "m", "0"): 100}))
-    d = s.process(Snapshot(instance="a", ts=2.0, requests=5,
-                           detected={(2, "m", "0"): 3}))
+    s.process(Snapshot(instance="a", ts=1.0, requests=1000, detected={(2, "m", "0"): 100}))
+    d = s.process(Snapshot(instance="a", ts=2.0, requests=5, detected={(2, "m", "0"): 3}))
     assert d is not None
     assert d.requests == 0
     assert d.anomalies_total == 0

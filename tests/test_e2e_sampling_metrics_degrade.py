@@ -1,14 +1,14 @@
 """e2e: 采样 / 指标 / 降级 / 检测异常隔离（spec §2.6 §2.8 §2.10 §2.11 §2.13）。"""
+
 from __future__ import annotations
 
 import json
-from unittest.mock import patch
 
 import pytest
-
 from _helpers import build_chat_response, chat_top_entry
-from anomaly_middleware.env import PluginConfig, resolve_config_path
+
 from anomaly_middleware.detector_runner import DetectorRunner
+from anomaly_middleware.env import resolve_config_path
 from anomaly_middleware.metrics import METRICS_CONTENT_TYPE
 from conftest import drain
 
@@ -20,6 +20,7 @@ def _chat_fn(model="glm-4-7", n_top=20):
     def fn(scope, body):
         e = chat_top_entry(100, NI, -0.1, n_top=n_top)
         return ("json", build_chat_response(model, [e]))
+
     return fn
 
 
@@ -36,9 +37,7 @@ async def test_metrics_endpoint(client_factory):
 async def test_monitor_rate_zero_passthrough(client_factory):
     # 采样率 0.0 → 不注入、不检测，请求直接透传
     client, fake, mw = client_factory(_chat_fn(), monitor_rate=0.0)
-    resp = await client.post(
-        "/v1/chat/completions", json={"model": "m", "messages": []}
-    )
+    resp = await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
     assert resp.status_code == 200
     # 下游收到的 body 未被注入（无 return_tokens_as_token_ids）
     injected = json.loads(fake.received[0][1])
@@ -69,8 +68,8 @@ async def test_monitor_rate_partial_with_patched_random(client_factory, monkeypa
     seq = iter([0.1, 0.5])
     monkeypatch.setattr(mwmod.random, "random", lambda: next(seq))
     client, fake, mw = client_factory(_chat_fn(), monitor_rate=0.3)
-    r1 = await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
-    r2 = await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
+    await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
+    await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
     b1 = json.loads(fake.received[0][1])
     b2 = json.loads(fake.received[1][1])
     assert b1.get("return_tokens_as_token_ids") is True  # 0.1<0.3 选中注入
@@ -86,9 +85,7 @@ async def test_degrade_when_paths_unresolvable(client_factory, monkeypatch):
 
     monkeypatch.setattr(mwmod, "resolve_config_path", lambda: None)
     client, fake, mw = client_factory(_chat_fn())
-    resp = await client.post(
-        "/v1/chat/completions", json={"model": "m", "messages": []}
-    )
+    resp = await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
     assert resp.status_code == 200
     # 降级：body 未注入
     injected = json.loads(fake.received[0][1])
@@ -114,9 +111,7 @@ async def test_detection_error_isolation(client_factory):
     runner._unusable_reason = "forced for test"
     mw._runner = runner
     mw._runner_inited = True
-    resp = await client.post(
-        "/v1/chat/completions", json={"model": "glm-4-7", "messages": []}
-    )
+    resp = await client.post("/v1/chat/completions", json={"model": "glm-4-7", "messages": []})
     assert resp.status_code == 200  # 客户端响应不受影响
     # 响应仍正常恢复
     assert resp.json()["choices"][0]["logprobs"] is None
@@ -124,9 +119,7 @@ async def test_detection_error_isolation(client_factory):
     text = mw.metrics.render_metrics().decode()
     assert "vllm_anomaly_detection_errors_total 1" in text
     # 后续请求正常处理（仍注入恢复；检测仍计 error）
-    resp2 = await client.post(
-        "/v1/chat/completions", json={"model": "glm-4-7", "messages": []}
-    )
+    resp2 = await client.post("/v1/chat/completions", json={"model": "glm-4-7", "messages": []})
     assert resp2.status_code == 200
     await drain(mw)
     text2 = mw.metrics.render_metrics().decode()
@@ -137,9 +130,7 @@ async def test_detection_error_isolation(client_factory):
 async def test_disabled_master_switch_passthrough(client_factory):
     # 总开关 False → 不注入不检测，指标端点仍可达
     client, fake, mw = client_factory(_chat_fn(), enabled=False)
-    resp = await client.post(
-        "/v1/chat/completions", json={"model": "m", "messages": []}
-    )
+    resp = await client.post("/v1/chat/completions", json={"model": "m", "messages": []})
     assert resp.status_code == 200
     assert "return_tokens_as_token_ids" not in json.loads(fake.received[0][1])
     mresp = await client.get("/anomaly/metrics")

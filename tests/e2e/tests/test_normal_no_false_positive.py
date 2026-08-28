@@ -9,15 +9,11 @@ pytestmark = pytest.mark.asyncio
 @pytest.mark.lightweight
 @pytest.mark.full
 @pytest.mark.nightly
-async def test_normal_no_false_positive(
-    vllm_service_b, http_client, metrics_client, served_name
-):
+async def test_normal_no_false_positive(vllm_service_b, http_client, metrics_client, served_name):
     ill_types = ["1", "2", "3", "4"]
     before = metrics_client.get_counter("vllm_anomaly_requests_total")
     before_detected = {
-        it: metrics_client.get_counter(
-            f'vllm_anomaly_detected_total{{ill_type="{it}",model="{served_name}"}}'
-        )
+        it: metrics_client.get_counter(f'vllm_anomaly_detected_total{{ill_type="{it}",model="{served_name}"}}')
         for it in ill_types
     }
 

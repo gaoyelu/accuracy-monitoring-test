@@ -7,12 +7,14 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def topk_service(vllm_service_factory, model_yaml):
-    return vllm_service_factory({
-        "model": model_yaml,
-        "middleware": True,
-        "env": {"VLLM_ANOMALY_TOP_LOGPROBS": "1"},
-        "with_injector": False,
-    })
+    return vllm_service_factory(
+        {
+            "model": model_yaml,
+            "middleware": True,
+            "env": {"VLLM_ANOMALY_TOP_LOGPROBS": "1"},
+            "with_injector": False,
+        }
+    )
 
 
 @pytest.fixture

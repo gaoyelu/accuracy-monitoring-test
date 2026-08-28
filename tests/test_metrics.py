@@ -1,4 +1,5 @@
 """metrics 单元测试：独立 registry + per-HTTP-request + choice_index + 四 gauge（spec §2.10）。"""
+
 from __future__ import annotations
 
 from anomaly_middleware.metrics import (
@@ -24,15 +25,13 @@ def test_record_detection_normal_only_requests():
     # normal 不计 detected
     assert "vllm_anomaly_detected_total" in text
     # requests_total 应为 1（按 HTTP 请求计数，不是按 choice）
-    assert 'vllm_anomaly_requests_total 1.0' in text or 'vllm_anomaly_requests_total 1' in text
+    assert "vllm_anomaly_requests_total 1.0" in text or "vllm_anomaly_requests_total 1" in text
 
 
 def test_record_detection_anomaly_choice_index():
     m = Metrics()
     # n=3：choice0 正常，choice1 生僻字，choice2 乱码
-    m.record_detection(
-        [[False, ILL_NORMAL], [True, ILL_RARE], [True, ILL_GARBLED]], "glm-4-7"
-    )
+    m.record_detection([[False, ILL_NORMAL], [True, ILL_RARE], [True, ILL_GARBLED]], "glm-4-7")
     text = m.render_metrics().decode()
     # 每请求 +1
     assert "vllm_anomaly_requests_total 1" in text

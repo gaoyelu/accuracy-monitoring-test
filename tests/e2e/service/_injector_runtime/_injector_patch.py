@@ -1,5 +1,6 @@
 """包裹 DetectorRunner.run_async / SSE 处理器 / 抽取函数，使其可经 sidecar 注错。
 不修改源码，仅在运行期类对象上替换方法。"""
+
 import json
 import urllib.request
 

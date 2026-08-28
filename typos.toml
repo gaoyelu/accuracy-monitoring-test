@@ -1,0 +1,23 @@
+[default.extend-words]
+repet = "repet"
+tk2cat = "tk2cat"
+logp = "logp"
+logprobs = "logprobs"
+topk = "topk"
+ngram = "ngram"
+fft = "fft"
+acf = "acf"
+ill = "ill"
+garbled = "garbled"
+anomaly_middleware = "anomaly_middleware"
+vllm = "vllm"
+asgi = "asgi"
+sse = "sse"
+tok = "tok"
+threeshold = "threeshold"
+
+[files]
+extend-exclude = [
+    ".github_demoncat/",
+    "tests/e2e/data/",
+]

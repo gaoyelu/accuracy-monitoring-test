@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import time
 
 import pytest
@@ -53,6 +52,7 @@ def pytest_configure(config):
 # Test ordering (design §3.2 / §8.4)
 # ---------------------------------------------------------------------------
 
+
 def pytest_collection_modifyitems(items):
     """Reorder collected tests by cases_registry.yaml `order` (grouped by
     service signature). Tests not listed in the registry keep their original
@@ -79,6 +79,7 @@ def _case_name(item) -> str:
 # ---------------------------------------------------------------------------
 # Session-scoped fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def model_yaml(request) -> dict:
@@ -181,18 +182,15 @@ def vllm_service_factory(injector, workspace, report_dir, service_port):
 # Function-scoped fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def vllm_service_b(vllm_service_factory, model_yaml):
-    return vllm_service_factory(
-        {"model": model_yaml, "middleware": True, "env": {}, "with_injector": True}
-    )
+    return vllm_service_factory({"model": model_yaml, "middleware": True, "env": {}, "with_injector": True})
 
 
 @pytest.fixture
 def vllm_service_no_mw(vllm_service_factory, model_yaml):
-    return vllm_service_factory(
-        {"model": model_yaml, "middleware": False, "env": {}, "with_injector": False}
-    )
+    return vllm_service_factory({"model": model_yaml, "middleware": False, "env": {}, "with_injector": False})
 
 
 @pytest.fixture
@@ -225,6 +223,8 @@ def anomaly_data(model_yaml) -> dict:
     except Exception:
         pass
 
+    import random
+
     from .data.anomaly_data_builder import (
         build_detection_error,
         build_garbled,
@@ -233,8 +233,6 @@ def anomaly_data(model_yaml) -> dict:
         build_rare_character,
         build_repetition,
     )
-
-    import random
 
     random.seed(42)
 
@@ -265,6 +263,7 @@ def anomaly_data(model_yaml) -> dict:
 # Autouse cleanup
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _clear_injector_after_test(injector):
     yield
@@ -274,6 +273,7 @@ def _clear_injector_after_test(injector):
 # ---------------------------------------------------------------------------
 # Failure diagnostics + stop-on-failure (design §9)
 # ---------------------------------------------------------------------------
+
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -340,7 +340,7 @@ def _collect_diagnostics(item, report):
         vllm_service = item.funcargs.get("vllm_service_b")
         if vllm_service is not None:
             try:
-                with open(vllm_service.log_path, "r", encoding="utf-8", errors="replace") as src:
+                with open(vllm_service.log_path, encoding="utf-8", errors="replace") as src:
                     lines = src.readlines()[-200:]
                 with open(os.path.join(diag_dir, "stderr.log"), "w", encoding="utf-8") as f:
                     f.writelines(lines)

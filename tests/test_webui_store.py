@@ -1,4 +1,5 @@
 """store 单元测试：环形缓冲、purge_instance、分层趋势（原始点/分钟桶）与全局聚合。"""
+
 from __future__ import annotations
 
 import time
@@ -57,8 +58,7 @@ def _delta(requests, event_specs):
     eid = 0
     for ill, instance, model, choice in event_specs:
         eid += 1
-        e = AnomalyEvent(id=eid, ts=time.time(), instance=instance, model=model,
-                         ill_type=ill, choice_index=choice)
+        e = AnomalyEvent(id=eid, ts=time.time(), instance=instance, model=model, ill_type=ill, choice_index=choice)
         d.events.append(e)
         d.anomalies_total += 1
         d.by_type[ill] = d.by_type.get(ill, 0) + 1
@@ -66,11 +66,18 @@ def _delta(requests, event_specs):
     return d
 
 
-def _alert(aid, rule, instance, model, ill, ts: float = None):
+def _alert(aid, rule, instance, model, ill, ts: "float | None" = None):
     from webui.alerts import Alert
 
-    return Alert(id=aid, rule_name=rule, ts=ts if ts is not None else time.time(),
-                 instance=instance, model=model, ill_type=ill, count=1)
+    return Alert(
+        id=aid,
+        rule_name=rule,
+        ts=ts if ts is not None else time.time(),
+        instance=instance,
+        model=model,
+        ill_type=ill,
+        count=1,
+    )
 
 
 def test_global_aggregation():
@@ -96,6 +103,7 @@ def test_trend_raw_pruning_by_time():
     assert [p.ts for p in pts] == [9_960.0]
     assert [p.anomalies for p in pts] == [2.0]
 
+
 def test_trend_bucket_sum_and_prune():
     st = _store(raw_trend_window_seconds=120, trend_bucket_seconds=60, trend_horizon_seconds=300)
     now = 10_000.0
@@ -113,8 +121,11 @@ def test_trend_bucket_sum_and_prune():
 def test_query_trends_boundary_no_double_count():
     """原始区边界：桶整体落在边界之前才取，避免与原始点重复计数。"""
     cfg = StoreConfig(
-        event_capacity=100, alert_capacity=50,
-        raw_trend_window_seconds=120, trend_bucket_seconds=60, trend_horizon_seconds=300,
+        event_capacity=100,
+        alert_capacity=50,
+        raw_trend_window_seconds=120,
+        trend_bucket_seconds=60,
+        trend_horizon_seconds=300,
     )
     st = Store(cfg)
     now = 10_000.0

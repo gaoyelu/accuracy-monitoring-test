@@ -4,7 +4,6 @@ import re
 import time
 import urllib.request
 
-
 _NAME_RE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{(.*)\})?$")
 _LINE_RE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{[^}]*\})?\s+(.+)$")
 _LABEL_RE = re.compile(r'(\w+)="([^"]*)"')
@@ -32,10 +31,7 @@ class PrometheusClient:
 
     @staticmethod
     def _labels_match(want: dict, got: dict) -> bool:
-        for k, v in want.items():
-            if got.get(k) != v:
-                return False
-        return True
+        return all(got.get(k) == v for k, v in want.items())
 
     def _query(self, metric: str, cast) -> float:
         name, labels = self._parse_spec(metric)
@@ -80,9 +76,7 @@ class PrometheusClient:
             if last_val is not None and predicate(last_val):
                 return
             time.sleep(0.5)
-        raise AssertionError(
-            f"timeout waiting for {metric}: last value={last_val}"
-        )
+        raise AssertionError(f"timeout waiting for {metric}: last value={last_val}")
 
     def snapshot(self) -> str:
         return self._fetch()

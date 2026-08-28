@@ -1,4 +1,5 @@
 """alerts 单元测试：滑动窗口、阈值触发、窗口重置去重、Webhook 分发与失败容错。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,24 +9,26 @@ import pytest
 from webui.alerts import Alert, AlertEngine
 from webui.config import AlertRule, StoreConfig
 from webui.events import AnomalyEvent
-from webui.store import RingBuffer, Store
+from webui.store import Store
 
 
 def _engine(rules, store=None, sender=None, default_webhook=""):
     st = store or Store(
-        StoreConfig(event_capacity=1000, alert_capacity=200,
-                    raw_trend_window_seconds=3600, trend_bucket_seconds=60,
-                    trend_horizon_seconds=86400)
+        StoreConfig(
+            event_capacity=1000,
+            alert_capacity=200,
+            raw_trend_window_seconds=3600,
+            trend_bucket_seconds=60,
+            trend_horizon_seconds=86400,
+        )
     )
-    eng = AlertEngine(st.alerts, id_allocer=st.alloc_alert_id, sender=sender,
-                      default_webhook_url=default_webhook)
+    eng = AlertEngine(st.alerts, id_allocer=st.alloc_alert_id, sender=sender, default_webhook_url=default_webhook)
     eng.set_rules(rules, default_webhook)
     return eng, st
 
 
 def _evt(instance, model, ill, ts):
-    return AnomalyEvent(id=ts * 10, ts=ts, instance=instance, model=model,
-                        ill_type=ill, choice_index="0")
+    return AnomalyEvent(id=ts * 10, ts=ts, instance=instance, model=model, ill_type=ill, choice_index="0")
 
 
 def test_threshold_not_reached_no_alert():
@@ -125,8 +128,7 @@ def test_rule_webhook_overrides_default():
     async def run():
         sender = RecordingSender()
         eng, st = _engine(
-            [AlertRule(name="r", ill_type=None, threshold=1, window_seconds=60,
-                       webhook_url="http://rule.example/y")],
+            [AlertRule(name="r", ill_type=None, threshold=1, window_seconds=60, webhook_url="http://rule.example/y")],
             sender=sender,
             default_webhook="http://default.example/z",
         )
@@ -139,6 +141,7 @@ def test_rule_webhook_overrides_default():
 
 def test_webhook_same_window_sent_once():
     """窗口重置语义 → 同一窗口只发一次。"""
+
     async def run():
         sender = RecordingSender()
         eng, st = _engine(
@@ -181,6 +184,7 @@ def test_no_webhook_when_no_url():
 
 def test_feishu_webhook_uses_feishu_format():
     """飞书机器人地址 → 自动转换为飞书文本消息格式。"""
+
     async def run():
         sender = RecordingSender()
         eng, st = _engine(
@@ -195,10 +199,10 @@ def test_feishu_webhook_uses_feishu_format():
         assert url.startswith("https://open.feishu.cn/open-apis/bot/v2/hook/")
         assert payload["msg_type"] == "text"
         text = payload["content"]["text"]
-        assert "告警规则: r" in text   # 规则名
-        assert "乱码" in text          # 异常类型中文标签
-        assert "实例: a" in text       # 实例
-        assert "模型: m" in text       # 模型
+        assert "告警规则: r" in text  # 规则名
+        assert "乱码" in text  # 异常类型中文标签
+        assert "实例: a" in text  # 实例
+        assert "模型: m" in text  # 模型
 
     asyncio.run(run())
 
@@ -210,8 +214,7 @@ def test_feishu_detection():
     assert is_feishu_webhook("https://open.larksuite.com/open-apis/bot/v2/hook/x")
     assert not is_feishu_webhook("http://hook.example/x")
     assert not is_feishu_webhook("")
-    alert = Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m",
-                  ill_type="nan_value", count=2)
+    alert = Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m", ill_type="nan_value", count=2)
     p = feishu_payload(alert)
     assert p["content"]["text"].startswith("【推理精度异常监控】")
     assert "NaN 值" in p["content"]["text"]
@@ -223,8 +226,7 @@ def test_feishu_detection():
 def test_dingtalk_and_wechat_payloads():
     from webui.alerts import dingtalk_payload, wechat_payload
 
-    alert = Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m",
-                  ill_type="garbled", count=2)
+    alert = Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m", ill_type="garbled", count=2)
     d = dingtalk_payload(alert)
     assert d["msgtype"] == "text"
     text = d["text"]["content"]
@@ -237,8 +239,7 @@ def test_dingtalk_and_wechat_payloads():
 def test_webhook_payload_auto_detects_channel():
     from webui.alerts import webhook_payload
 
-    alert = Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m",
-                  ill_type="garbled", count=2)
+    alert = Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m", ill_type="garbled", count=2)
     body = webhook_payload("https://oapi.dingtalk.com/robot/send?access_token=x", alert)
     assert body["msgtype"] == "text" and "text" in body
     body = webhook_payload("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=x", alert)
@@ -250,6 +251,7 @@ def test_webhook_payload_auto_detects_channel():
 
 def test_dingtalk_webhook_roundtrip_via_engine():
     """钉钉地址经引擎分发 → 自动转钉钉格式。"""
+
     async def run():
         sender = RecordingSender()
         eng, st = _engine(
@@ -274,15 +276,24 @@ def test_email_channel_dispatch_and_failure_is_silent():
     from webui.config import EmailConfig
 
     async def run():
-        st = Store(StoreConfig(event_capacity=100, alert_capacity=10,
-                               raw_trend_window_seconds=3600, trend_bucket_seconds=60,
-                               trend_horizon_seconds=86400))
+        st = Store(
+            StoreConfig(
+                event_capacity=100,
+                alert_capacity=10,
+                raw_trend_window_seconds=3600,
+                trend_bucket_seconds=60,
+                trend_horizon_seconds=86400,
+            )
+        )
         eng = AlertEngine(
             st.alerts,
             id_allocer=st.alloc_alert_id,
             email_cfg=EmailConfig(
-                enabled=True, smtp_host="127.0.0.1", smtp_port=1,
-                from_addr="a@b.c", to_addrs=("x@y.z",),
+                enabled=True,
+                smtp_host="127.0.0.1",
+                smtp_port=1,
+                from_addr="a@b.c",
+                to_addrs=("x@y.z",),
             ),
         )
         eng.set_rules([AlertRule(name="r", ill_type=None, threshold=1, window_seconds=60)])
@@ -297,14 +308,19 @@ def test_email_channel_dispatch_and_failure_is_silent():
 def test_email_disabled_no_email_task():
     from webui.config import EmailConfig
 
-    st = Store(StoreConfig(event_capacity=100, alert_capacity=10,
-                           raw_trend_window_seconds=3600, trend_bucket_seconds=60,
-                           trend_horizon_seconds=86400))
+    st = Store(
+        StoreConfig(
+            event_capacity=100,
+            alert_capacity=10,
+            raw_trend_window_seconds=3600,
+            trend_bucket_seconds=60,
+            trend_horizon_seconds=86400,
+        )
+    )
     eng = AlertEngine(st.alerts, id_allocer=st.alloc_alert_id, email_cfg=EmailConfig())
     eng.set_rules([AlertRule(name="r", ill_type=None, threshold=1, window_seconds=60)])
     rule = eng.rules[0]
-    eng._dispatch(rule, Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m",
-                              ill_type="garbled", count=1))
+    eng._dispatch(rule, Alert(id=1, rule_name="r", ts=1.0, instance="a", model="m", ill_type="garbled", count=1))
     assert eng._pending == set()
     assert len(st.recent_alerts(10)) == 0  # dispatch 只发通知，不入缓冲（由 ingest 处理）
 
@@ -320,14 +336,21 @@ def test_email_config_validation():
     with pytest.raises(ConfigError, match="to_addrs"):
         EmailConfig.from_dict({"enabled": True, "smtp_host": "h", "from_addr": "a@b.c"})
     with pytest.raises(ConfigError, match="smtp_port"):
-        EmailConfig.from_dict({"enabled": True, "smtp_host": "h", "from_addr": "a@b.c",
-                               "to_addrs": ["x@y.z"], "smtp_port": -1})
+        EmailConfig.from_dict(
+            {"enabled": True, "smtp_host": "h", "from_addr": "a@b.c", "to_addrs": ["x@y.z"], "smtp_port": -1}
+        )
     # 合法配置
-    cfg = EmailConfig.from_dict({
-        "enabled": True, "smtp_host": "smtp.x.com", "smtp_port": 465,
-        "smtp_user": "u", "smtp_password": "p", "from_addr": "a@b.c",
-        "to_addrs": ["x@y.z", "q@w.e"],
-    })
+    cfg = EmailConfig.from_dict(
+        {
+            "enabled": True,
+            "smtp_host": "smtp.x.com",
+            "smtp_port": 465,
+            "smtp_user": "u",
+            "smtp_password": "p",
+            "from_addr": "a@b.c",
+            "to_addrs": ["x@y.z", "q@w.e"],
+        }
+    )
     assert cfg.is_ready()
     assert cfg.to_addrs == ("x@y.z", "q@w.e")
     # 未启用时缺省合法
@@ -335,9 +358,15 @@ def test_email_config_validation():
 
 
 def test_alert_buffer_capacity():
-    st = Store(StoreConfig(event_capacity=100, alert_capacity=3,
-                           raw_trend_window_seconds=3600, trend_bucket_seconds=60,
-                           trend_horizon_seconds=86400))
+    st = Store(
+        StoreConfig(
+            event_capacity=100,
+            alert_capacity=3,
+            raw_trend_window_seconds=3600,
+            trend_bucket_seconds=60,
+            trend_horizon_seconds=86400,
+        )
+    )
     eng = AlertEngine(st.alerts, id_allocer=st.alloc_alert_id)
     eng.set_rules([AlertRule(name="r", ill_type=None, threshold=1, window_seconds=60)])
     for i in range(5):

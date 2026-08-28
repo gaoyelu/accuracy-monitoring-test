@@ -1,4 +1,5 @@
 """config / ConfigManager 单元测试：校验、热重载、diff、mtime、原子写盘。"""
+
 from __future__ import annotations
 
 import os
@@ -6,6 +7,7 @@ import time
 
 import pytest
 
+from tests._webui_helpers import build_webui_config_dict, write_yaml
 from webui.config import (
     AlertRule,
     ConfigError,
@@ -13,7 +15,6 @@ from webui.config import (
     InstanceConfig,
     WebUIConfig,
 )
-from tests._webui_helpers import build_webui_config_dict, write_yaml
 
 
 def _file(tmp_path, **kwargs) -> str:
@@ -87,9 +88,7 @@ def test_bad_threshold_rejected():
 
 
 def test_duplicate_rule_names_rejected(tmp_path):
-    data = build_webui_config_dict(
-        alerts=[{"name": "r"}, {"name": "r"}]
-    )
+    data = build_webui_config_dict(alerts=[{"name": "r"}, {"name": "r"}])
     with pytest.raises(ConfigError, match="规则名冲突"):
         WebUIConfig.from_dict(data)
 

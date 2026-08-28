@@ -1,5 +1,6 @@
 """extractor 单元测试：parse_token_id / save_original_params / inject_params /
 extract_chat / extract_completions / strip_chat / strip_completions（spec §2.2 §2.3）。"""
+
 from __future__ import annotations
 
 import json
@@ -9,6 +10,7 @@ from _helpers import (
     build_completions_response,
     chat_top_entry,
 )
+
 from anomaly_middleware.extractor import (
     OriginalParams,
     extract_chat_response,
@@ -344,7 +346,7 @@ def test_strip_chat_main_token_bytes_broken_falls_to_id():
     # 触发条件命中 + 主 token bytes 破碎（解码出 token_id: 前缀，守卫拒绝）
     # 三层兜底：resolver(None) → bytes(破碎,守卫拒绝) → token_id:NNN
     e = chat_top_entry(100, NI, -0.1, n_top=5, vllm_broken_top_bytes=True)
-    e["bytes"] = list(f"token_id:100".encode("utf-8"))  # 主 token bytes 也破碎
+    e["bytes"] = list(b"token_id:100")  # 主 token bytes 也破碎
     data = build_chat_response("glm-4-7", [e])
     orig = OriginalParams(True, True, 3, False, 1, False)
     strip_chat_response(data, orig)  # resolver 默认 None
@@ -384,8 +386,7 @@ def test_strip_completions_rtati_true_no_fallback():
 
 # --------------------------- 多候选 n>1（spec §2.3：循环处理每份候选） --------------------------- #
 def test_strip_completions_n_choices_loop_with_resolver():
-    data = build_completions_response("glm-4-7", [100, 200], [-0.1, -0.2],
-                                      n_top=5, n=3)
+    data = build_completions_response("glm-4-7", [100, 200], [-0.1, -0.2], n_top=5, n=3)
     orig = OriginalParams(False, 3, None, False, 3, False)
     r = _resolver({100: "你", 200: "好", 10000: "甲", 10001: "乙", 10002: "丙"})
     strip_completions_response(data, orig, r)
@@ -399,8 +400,7 @@ def test_strip_completions_n_choices_loop_with_resolver():
 
 
 def test_extract_completions_n_choices_all_returned():
-    data = build_completions_response("glm-4-7", [100, 200], [-0.1, -0.2],
-                                      n_top=20, n=3)
+    data = build_completions_response("glm-4-7", [100, 200], [-0.1, -0.2], n_top=20, n=3)
     res = extract_completions_response(data, n_detect=4)
     assert len(res) == 3  # per choice
     for topk_list, tokens in res:

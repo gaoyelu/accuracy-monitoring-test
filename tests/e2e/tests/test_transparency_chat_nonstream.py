@@ -20,6 +20,4 @@ async def test_transparency_chat_nonstream(http_client, baseline_store):
         resp = await http_client.chat(messages=messages, **kwargs, **extra)
         assert resp.status_code == 200, f"chat nonstream v{variant}: {resp.status_code}"
         baseline = baseline_store.load_chat_nonstream(variant)
-        assert_response_transparent(
-            resp.json(), baseline, note=f"chat nonstream v{variant}"
-        )
+        assert_response_transparent(resp.json(), baseline, note=f"chat nonstream v{variant}")

@@ -5,13 +5,14 @@
   （保留 trend_horizon_seconds）；新原始点落盘同步累加进当前分钟桶；均按时间淘汰。
 - `purge_instance(name)`：清除该实例的事件/告警/趋势/统计，不影响其它实例。
 """
+
 from __future__ import annotations
 
 import math
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, Deque, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 from .config import ILL_TYPES, StoreConfig
 from .events import AnomalyEvent
@@ -230,9 +231,7 @@ class Store:
     # ------------------------------------------------------------------ #
     # 分层趋势
     # ------------------------------------------------------------------ #
-    def record_trend(
-        self, instance: str, model: str, point: TrendPoint, now: Optional[float] = None
-    ) -> None:
+    def record_trend(self, instance: str, model: str, point: TrendPoint, now: Optional[float] = None) -> None:
         key = (instance, model)
         s = self._trends.get(key)
         if s is None:

@@ -2,6 +2,7 @@
 
 路径解析固定返回 configs/detector.yaml（不可 env 覆盖）。
 """
+
 from __future__ import annotations
 
 import os
@@ -63,6 +64,7 @@ def test_resolve_config_path_default():
 
 def test_resolve_config_path_missing_returns_none(monkeypatch):
     import anomaly_middleware.env as env_mod
+
     monkeypatch.setattr(env_mod.os.path, "isfile", lambda _p: False)
     assert resolve_config_path() is None
 

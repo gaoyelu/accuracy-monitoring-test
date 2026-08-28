@@ -5,6 +5,7 @@
 - 凭据热重载：username/password/password_hash 变更即时生效，已登录 token 不强制失效。
 - token 过期无需重启服务，重新登录即可。
 """
+
 from __future__ import annotations
 
 import secrets

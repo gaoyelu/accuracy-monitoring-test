@@ -2,6 +2,7 @@
 
 与 middleware 的 `_helpers.py` 平级，但仅服务于 webui 测试（tests/test_webui_*.py）。
 """
+
 from __future__ import annotations
 
 import json

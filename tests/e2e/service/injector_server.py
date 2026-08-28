@@ -35,8 +35,7 @@ class InjectorServer:
     def get_state(self) -> dict:
         with self._lock:
             queue_snapshot = {
-                kind: [{"payload": p, "remaining": c} for p, c in items]
-                for kind, items in self._queue.items()
+                kind: [{"payload": p, "remaining": c} for p, c in items] for kind, items in self._queue.items()
             }
             return {"queue": queue_snapshot, "used_count": self._used_count}
 

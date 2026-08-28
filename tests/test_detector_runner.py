@@ -1,13 +1,14 @@
 """detector_runner 单元测试：lazy 构造 / run_sync / run_async / unusable / 异常隔离 /
 topk_n / set_vocabulary 注入（spec §2.5 §2.6 §2.7 §6.5）。"""
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
 
-from anomaly_middleware.env import PluginConfig, resolve_config_path
 from anomaly_middleware.detector_runner import DetectorRunner, schedule_detection
+from anomaly_middleware.env import resolve_config_path
 from anomaly_middleware.metrics import Metrics
 
 
@@ -63,8 +64,13 @@ async def test_schedule_detection_records(vendored_config):
     pending = set()
     topk, tokens = _normal_data()
     task = schedule_detection(
-        runner, topk, tokens,
-        request_id="rid", model="glm-4-7", metrics=metrics, pending_tasks=pending,
+        runner,
+        topk,
+        tokens,
+        request_id="rid",
+        model="glm-4-7",
+        metrics=metrics,
+        pending_tasks=pending,
     )
     await asyncio.wait_for(task, timeout=30)
     text = metrics.render_metrics().decode()
@@ -86,8 +92,13 @@ async def test_schedule_detection_error_isolation(tmp_path):
     pending = set()
     topk, tokens = _normal_data()
     task = schedule_detection(
-        runner, topk, tokens,
-        request_id="rid", model="m", metrics=metrics, pending_tasks=pending,
+        runner,
+        topk,
+        tokens,
+        request_id="rid",
+        model="m",
+        metrics=metrics,
+        pending_tasks=pending,
     )
     await asyncio.wait_for(task, timeout=10)
     text = metrics.render_metrics().decode()
@@ -115,8 +126,7 @@ def test_runner_topk_n_stored(vendored_config):
 
 def test_runner_topk_n_truncates_larger_data(vendored_config):
     runner = DetectorRunner(vendored_config, max_workers=1, topk_n=3)
-    big = [{1: -0.1, 2: -0.2, 3: -0.3, 4: -0.4, 5: -0.5},
-           {1: -0.1, 2: -0.2, 3: -0.3, 4: -0.4, 5: -0.5}]
+    big = [{1: -0.1, 2: -0.2, 3: -0.3, 4: -0.4, 5: -0.5}, {1: -0.1, 2: -0.2, 3: -0.3, 4: -0.4, 5: -0.5}]
     results = runner.run_sync([big], [[1, 2]])
     assert results == [[False, 0]]
     runner.shutdown()

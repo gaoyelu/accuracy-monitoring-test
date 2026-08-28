@@ -10,6 +10,7 @@
 
 服务地址默认 localhost:8008（run_server.sh）；服务不可达时整模块 skip（不影响离线单测）。
 """
+
 from __future__ import annotations
 
 import json
@@ -69,8 +70,7 @@ def test_live_chat_no_logprobs_transparent(client):
     """客户端未请求 logprobs -> 响应 logprobs=null、无 token_id:、关联头存在。"""
     resp = client.post(
         "/v1/chat/completions",
-        json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}],
-              "max_tokens": 16},
+        json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}], "max_tokens": 16},
     )
     assert resp.status_code == 200
     assert "x-anomaly-request-id" in resp.headers
@@ -83,8 +83,13 @@ def test_live_chat_logprobs_truncate_and_no_leak(client):
     """客户端 logprobs=true, top_logprobs=3 -> 截断 3、token 为解码文本、无 token_id:。"""
     resp = client.post(
         "/v1/chat/completions",
-        json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}],
-              "max_tokens": 16, "logprobs": True, "top_logprobs": 3},
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": "你好"}],
+            "max_tokens": 16,
+            "logprobs": True,
+            "top_logprobs": 3,
+        },
     )
     assert resp.status_code == 200
     lp = resp.json()["choices"][0].get("logprobs")
@@ -104,9 +109,14 @@ def test_live_chat_return_tokens_as_token_ids_kept(client):
     """客户端设 return_tokens_as_token_ids=True -> 原样保留 token_id:。"""
     resp = client.post(
         "/v1/chat/completions",
-        json={"model": MODEL, "messages": [{"role": "user", "content": "你好"}],
-              "max_tokens": 16, "logprobs": True, "top_logprobs": 2,
-              "return_tokens_as_token_ids": True},
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": "你好"}],
+            "max_tokens": 16,
+            "logprobs": True,
+            "top_logprobs": 2,
+            "return_tokens_as_token_ids": True,
+        },
     )
     assert resp.status_code == 200
     lp = resp.json()["choices"][0].get("logprobs")
@@ -121,9 +131,10 @@ def test_live_chat_return_tokens_as_token_ids_kept(client):
 def test_live_chat_request_ids_unique(client):
     ids = set()
     for _ in range(3):
-        r = client.post("/v1/chat/completions",
-                        json={"model": MODEL, "messages": [{"role": "user", "content": "hi"}],
-                              "max_tokens": 4})
+        r = client.post(
+            "/v1/chat/completions",
+            json={"model": MODEL, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 4},
+        )
         ids.add(r.headers.get("x-anomaly-request-id"))
     assert len(ids) == 3
 
@@ -133,9 +144,7 @@ def test_live_chat_request_ids_unique(client):
 # --------------------------------------------------------------------------- #
 def test_live_chat_stream_incremental_and_no_leak(client):
     """流式：增量收到事件 + 终端 [DONE]，无 token_id: 泄漏。"""
-    payload = {"model": MODEL,
-               "messages": [{"role": "user", "content": "你好"}],
-               "max_tokens": 16, "stream": True}
+    payload = {"model": MODEL, "messages": [{"role": "user", "content": "你好"}], "max_tokens": 16, "stream": True}
     content = b""
     with client.stream("POST", "/v1/chat/completions", json=payload) as r:
         assert r.status_code == 200
@@ -149,10 +158,14 @@ def test_live_chat_stream_incremental_and_no_leak(client):
 
 def test_live_chat_stream_logprobs_truncated(client):
     """流式 + top_logprobs=3 -> 每块 logprobs 截断到 3、文本还原。"""
-    payload = {"model": MODEL,
-               "messages": [{"role": "user", "content": "你好"}],
-               "max_tokens": 16, "stream": True,
-               "logprobs": True, "top_logprobs": 3}
+    payload = {
+        "model": MODEL,
+        "messages": [{"role": "user", "content": "你好"}],
+        "max_tokens": 16,
+        "stream": True,
+        "logprobs": True,
+        "top_logprobs": 3,
+    }
     content = b""
     with client.stream("POST", "/v1/chat/completions", json=payload) as r:
         for chunk in r.iter_bytes():
@@ -163,7 +176,7 @@ def test_live_chat_stream_logprobs_truncated(client):
     for line in content.split(b"\n"):
         if not line.startswith(b"data: ") or line.strip() == b"data: [DONE]":
             continue
-        obj = json.loads(line[len(b"data: "):])
+        obj = json.loads(line[len(b"data: ") :])
         for choice in obj.get("choices", []):
             lp = choice.get("logprobs")
             if lp and lp.get("content"):
@@ -204,8 +217,7 @@ def test_live_completions_logprobs_text_no_leak(client):
 
 
 def test_live_completions_stream_no_leak(client):
-    payload = {"model": MODEL, "prompt": "1+1=", "max_tokens": 8,
-               "stream": True}
+    payload = {"model": MODEL, "prompt": "1+1=", "max_tokens": 8, "stream": True}
     content = b""
     with client.stream("POST", "/v1/completions", json=payload) as r:
         assert "x-anomaly-request-id" in r.headers
@@ -222,14 +234,12 @@ def test_live_detection_runs_without_errors(client):
     """多请求（chat/completions、流式/非流式）后：检测执行计数增长、检测错误为 0。"""
     before = client.get("/anomaly/metrics").text
     for path, body in [
-        ("/v1/chat/completions",
-         {"model": MODEL, "messages": [{"role": "user", "content": "hi"}],
-          "max_tokens": 4}),
-        ("/v1/completions",
-         {"model": MODEL, "prompt": "hi", "max_tokens": 4}),
-        ("/v1/chat/completions",
-         {"model": MODEL, "messages": [{"role": "user", "content": "hi"}],
-          "max_tokens": 4, "stream": True}),
+        ("/v1/chat/completions", {"model": MODEL, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 4}),
+        ("/v1/completions", {"model": MODEL, "prompt": "hi", "max_tokens": 4}),
+        (
+            "/v1/chat/completions",
+            {"model": MODEL, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 4, "stream": True},
+        ),
     ]:
         resp = client.post(path, json=body)
         assert resp.status_code == 200

@@ -1,13 +1,13 @@
 """API 集成测试：认证、查询端点结构、实例管理端点、trends 白名单、yaml 写回。"""
+
 from __future__ import annotations
 
-import yaml
-import pytest
 import httpx
-from fastapi import FastAPI
+import pytest
+import yaml
 
-from webui.main import create_app
 from tests._webui_helpers import build_webui_config_dict, write_yaml
+from webui.main import create_app
 
 
 @pytest.fixture
@@ -17,9 +17,7 @@ async def app_client(tmp_path):
     app = create_app(cfg_path)
     ctx = app.state.ctx
     await ctx.start()
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         yield client, ctx, cfg_path
     await ctx.stop()
 
@@ -35,8 +33,7 @@ async def _login(client):
 # ------------------------------------------------------------------ #
 async def test_apis_require_auth(app_client):
     client, _, _ = app_client
-    for path in ("/api/summary", "/api/instances", "/api/events", "/api/alerts",
-                 "/api/trends?window=1h"):
+    for path in ("/api/summary", "/api/instances", "/api/events", "/api/alerts", "/api/trends?window=1h"):
         r = await client.get(path)
         assert r.status_code == 401, path
 
@@ -70,8 +67,7 @@ async def test_summary_structure(app_client):
     r = await client.get("/api/summary", headers=h)
     assert r.status_code == 200
     data = r.json()
-    for k in ("requests", "anomalies", "anomaly_rate", "errors",
-              "by_type", "by_model", "instances", "updated_at"):
+    for k in ("requests", "anomalies", "anomaly_rate", "errors", "by_type", "by_model", "instances", "updated_at"):
         assert k in data
     assert set(data["by_type"].keys()) == {"rare_character", "garbled", "repetition", "nan_value"}
 
@@ -83,8 +79,7 @@ async def test_summary_reflects_store(app_client):
 
     d = DeltaSummary(requests=5)
     for i in range(2):
-        d.events.append(AnomalyEvent(id=i + 1, ts=1.0, instance="a", model="m",
-                                     ill_type="garbled", choice_index="0"))
+        d.events.append(AnomalyEvent(id=i + 1, ts=1.0, instance="a", model="m", ill_type="garbled", choice_index="0"))
     d.anomalies_total = 2
     d.by_type["garbled"] = 2
     d.by_model["m"] = 2
@@ -115,8 +110,9 @@ async def test_events_limit_clamped(app_client):
     from webui.events import AnomalyEvent
 
     for i in range(30):
-        ctx.store.add_event(AnomalyEvent(id=i + 1, ts=float(i), instance="a", model="m",
-                                         ill_type="garbled", choice_index="0"))
+        ctx.store.add_event(
+            AnomalyEvent(id=i + 1, ts=float(i), instance="a", model="m", ill_type="garbled", choice_index="0")
+        )
     r = await client.get("/api/events?limit=10", headers=h)
     assert len(r.json()) == 10
     r = await client.get("/api/events?limit=99999", headers=h)
@@ -159,8 +155,7 @@ async def test_instance_summary_requires_auth_then_returns_detail(app_client):
     from webui.events import AnomalyEvent, DeltaSummary
 
     d = DeltaSummary(requests=7)
-    d.events.append(AnomalyEvent(id=1, ts=1.0, instance="x", model="m",
-                                 ill_type="garbled", choice_index="0"))
+    d.events.append(AnomalyEvent(id=1, ts=1.0, instance="x", model="m", ill_type="garbled", choice_index="0"))
     d.anomalies_total = 1
     d.by_type["garbled"] = 1
     d.by_model["m"] = 1
@@ -209,10 +204,8 @@ async def test_instance_events_filtered(app_client):
     await client.post("/api/instances", json={"name": "x", "url": "http://x:1"}, headers=h)
     from webui.events import AnomalyEvent
 
-    ctx.store.add_event(AnomalyEvent(id=1, ts=1.0, instance="x", model="m",
-                                     ill_type="garbled", choice_index="0"))
-    ctx.store.add_event(AnomalyEvent(id=2, ts=2.0, instance="y", model="m",
-                                     ill_type="nan_value", choice_index="0"))
+    ctx.store.add_event(AnomalyEvent(id=1, ts=1.0, instance="x", model="m", ill_type="garbled", choice_index="0"))
+    ctx.store.add_event(AnomalyEvent(id=2, ts=2.0, instance="y", model="m", ill_type="nan_value", choice_index="0"))
     r = await client.get("/api/instances/x/events?limit=10", headers=h)
     assert r.status_code == 200
     items = r.json()
@@ -311,8 +304,7 @@ async def test_delete_purges_instance_data(app_client):
     await client.post("/api/instances", json={"name": "p", "url": "http://x:1"}, headers=h)
     from webui.events import AnomalyEvent
 
-    ctx.store.add_event(AnomalyEvent(id=1, ts=1.0, instance="p", model="m",
-                                     ill_type="garbled", choice_index="0"))
+    ctx.store.add_event(AnomalyEvent(id=1, ts=1.0, instance="p", model="m", ill_type="garbled", choice_index="0"))
     ctx.store.set_state("p", "online")
     await client.delete("/api/instances/p", headers=h)
     assert ctx.store.instance_stats("p") is None

@@ -3,6 +3,7 @@
 纯数据层：不涉及 ASGI。middleware.py 负责 ASGI 集成（读 body、重放 receive、patch scope）。
 本模块负责：请求体参数快照、强制注入、响应抽取（供检测）、响应恢复（供客户端）、SSE 跨块重组。
 """
+
 from __future__ import annotations
 
 import copy
@@ -96,7 +97,7 @@ def parse_token_id(value: Any) -> int:
     if isinstance(value, str):
         s = value.strip()
         if s.startswith(TOKEN_ID_PREFIX):
-            s = s[len(TOKEN_ID_PREFIX):].strip()
+            s = s[len(TOKEN_ID_PREFIX) :].strip()
         try:
             return int(s)
         except ValueError:
@@ -182,9 +183,7 @@ def _truncate_topk(d: Dict[int, float], n: Optional[int]) -> Tuple[List[float], 
     return logprobs, token_ids
 
 
-def _build_arrays(
-    lp_list: List[List[float]], tid_list: List[List[int]]
-) -> Tuple[np.ndarray, np.ndarray]:
+def _build_arrays(lp_list: List[List[float]], tid_list: List[List[int]]) -> Tuple[np.ndarray, np.ndarray]:
     """将 per-position 列表构建为 2D numpy 数组。"""
     if not lp_list:
         return np.empty((0, 0), dtype=np.float32), np.empty((0, 0), dtype=np.int32)
@@ -194,9 +193,7 @@ def _build_arrays(
 # --------------------------------------------------------------------------- #
 # 抽取（供检测）：per choice -> (topk_list, tokens_list)
 # --------------------------------------------------------------------------- #
-def extract_chat_response(
-    data: Any, n_detect: int
-) -> List[Tuple[np.ndarray, np.ndarray]]:
+def extract_chat_response(data: Any, n_detect: int) -> List[Tuple[np.ndarray, np.ndarray]]:
     """chat 非流式：choices[].logprobs.content[]。返回 per choice (logprobs, token_ids) 数组。"""
     results: List[Tuple[np.ndarray, np.ndarray]] = []
     if not isinstance(data, dict):
@@ -237,9 +234,7 @@ def extract_chat_response(
     return results
 
 
-def extract_completions_response(
-    data: Any, n_detect: int
-) -> List[Tuple[np.ndarray, np.ndarray]]:
+def extract_completions_response(data: Any, n_detect: int) -> List[Tuple[np.ndarray, np.ndarray]]:
     """completions 非流式：choices[].logprobs{tokens[],token_logprobs[],top_logprobs[]}。"""
     results: List[Tuple[np.ndarray, np.ndarray]] = []
     if not isinstance(data, dict):
@@ -345,9 +340,7 @@ def strip_chat_response(
                         resolver,
                         fallback_to_id=fallback_to_id,
                     )
-                    entry["bytes"] = _restore_token_bytes(
-                        entry["token"], entry.get("bytes")
-                    )
+                    entry["bytes"] = _restore_token_bytes(entry["token"], entry.get("bytes"))
                     for tp in tps:
                         if isinstance(tp, dict):
                             tp["token"] = _token_text(
@@ -356,9 +349,7 @@ def strip_chat_response(
                                 resolver,
                                 fallback_to_id=fallback_to_id,
                             )
-                            tp["bytes"] = _restore_token_bytes(
-                                tp["token"], tp.get("bytes")
-                            )
+                            tp["bytes"] = _restore_token_bytes(tp["token"], tp.get("bytes"))
                 entry["top_logprobs"] = tps
 
 
@@ -381,11 +372,7 @@ def strip_completions_response(
     if not isinstance(choices, list):
         return
     # §4.7 降级例外：completions 客户端请求 topk(logprobs>0) + 未设 rtati + resolver 不可用
-    fallback_to_id = (
-        not orig.return_tokens_as_token_ids
-        and resolver is None
-        and (orig.logprobs or 0) > 0
-    )
+    fallback_to_id = not orig.return_tokens_as_token_ids and resolver is None and (orig.logprobs or 0) > 0
     for choice in choices:
         if not isinstance(choice, dict):
             continue
@@ -412,9 +399,7 @@ def strip_completions_response(
                 else:
                     rebuilt: Dict[str, Any] = {}
                     for k, v in items:
-                        txt = _token_text(
-                            k, None, resolver, fallback_to_id=fallback_to_id
-                        )  # completions 无 bytes
+                        txt = _token_text(k, None, resolver, fallback_to_id=fallback_to_id)  # completions 无 bytes
                         if txt is not None:
                             rebuilt[txt] = v
                     new_tlp.append(rebuilt if rebuilt else None)
@@ -422,10 +407,7 @@ def strip_completions_response(
         if not orig.return_tokens_as_token_ids:
             toks = lp.get("tokens")
             if isinstance(toks, list):
-                lp["tokens"] = [
-                    _token_text(t, None, resolver, fallback_to_id=fallback_to_id)
-                    for t in toks
-                ]
+                lp["tokens"] = [_token_text(t, None, resolver, fallback_to_id=fallback_to_id) for t in toks]
                 if recompute_text_offset:
                     lp["text_offset"] = _recompute_text_offset(lp["tokens"])
 
@@ -497,7 +479,7 @@ class SSEStreamProcessor:
             # keep-alive / 注释：原样透传
             return event + b"\n\n"
         # 聚合 data 负载（多 data 行用 \n 连接）
-        payload = b"\n".join(l[len(b"data:"):].lstrip(b" ") for l in data_lines)
+        payload = b"\n".join(l[len(b"data:") :].lstrip(b" ") for l in data_lines)
         if payload.strip() == b"[DONE]":
             # 终端 [DONE] 原样透传
             return event + b"\n\n"
@@ -553,9 +535,7 @@ class SSEStreamProcessor:
                 toks = list(toks) if isinstance(toks, list) else []
                 tl = list(tl) if isinstance(tl, list) else []
                 tlp = list(tlp) if isinstance(tlp, list) else []
-                acc = self._comp_acc.setdefault(
-                    cidx, {"tokens": [], "token_logprobs": [], "top_logprobs": []}
-                )
+                acc = self._comp_acc.setdefault(cidx, {"tokens": [], "token_logprobs": [], "top_logprobs": []})
                 if not acc["tokens"]:
                     acc["tokens"] = toks
                     acc["token_logprobs"] = tl
@@ -572,13 +552,9 @@ class SSEStreamProcessor:
 
     def _strip_streaming(self, parsed: Dict[str, Any]) -> None:
         if self._is_chat:
-            strip_chat_response(
-                parsed, self._orig, self._resolver
-            )
+            strip_chat_response(parsed, self._orig, self._resolver)
         else:
-            strip_completions_response(
-                parsed, self._orig, self._resolver
-            )
+            strip_completions_response(parsed, self._orig, self._resolver)
 
     # ---- 检测数据 ---- #
     def get_detection_data(

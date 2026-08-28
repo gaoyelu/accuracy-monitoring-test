@@ -23,13 +23,14 @@
 transformers 改懒导入（本模块不强依赖 transformers）；decode 降级链优先
 backend_tokenizer.decoder.decode，退到 tokenizer.decode，均无则 raise（调用方降级）。
 """
+
 from __future__ import annotations
 
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 
 @dataclass
@@ -198,12 +199,16 @@ def _get_decode_fn(tokenizer):
     backend = getattr(tokenizer, "backend_tokenizer", None)
     decoder = getattr(backend, "decoder", None) if backend is not None else None
     if decoder is not None and hasattr(decoder, "decode"):
+
         def _backend(token, idx):
             return decoder.decode([token])
+
         return _backend
     if hasattr(tokenizer, "decode"):
+
         def _highlevel(token, idx):
             return tokenizer.decode([idx])
+
         return _highlevel
     return None
 
@@ -230,10 +235,7 @@ def generate_tk2cat(tokenizer) -> Tuple[Dict[str, str], int]:
 
     decode_fn = _get_decode_fn(tokenizer)
     if decode_fn is None:
-        raise RuntimeError(
-            "tokenizer 无可用 decode 路径"
-            "（backend_tokenizer.decoder.decode / tokenizer.decode 均缺失）"
-        )
+        raise RuntimeError("tokenizer 无可用 decode 路径（backend_tokenizer.decoder.decode / tokenizer.decode 均缺失）")
 
     id_to_category: Dict[str, str] = {}
     for idx, token in enumerate(tokens):

@@ -1,16 +1,17 @@
 """e2e: 流式 — 增量转发 / 跨块重组 / [DONE] 保留 / 恢复（spec §2.4）。"""
+
 from __future__ import annotations
 
 import json
 
 import pytest
-
 from _helpers import (
     chat_stream_chunk,
     chat_top_entry,
     completions_stream_chunk,
     install_fake_resolver,
 )
+
 from conftest import drain
 
 NI = "你"
@@ -29,6 +30,7 @@ def _chat_stream_fn(model="glm-4-7", n_top=20, split=None):
             None,  # [DONE]
         ]
         return ("stream", chunks, split) if split is not None else ("stream", chunks)
+
     return fn
 
 
@@ -40,6 +42,7 @@ def _comp_stream_fn(model="glm-4-7", n_top=20):
             None,
         ]
         return ("stream", chunks)
+
     return fn
 
 
@@ -79,9 +82,9 @@ async def test_chat_stream_cross_chunk_reassembly(client_factory):
         {"model": "glm-4-7", "messages": [], "logprobs": True, "top_logprobs": 3, "stream": True},
     )
     # 第一条事件完整（data: {...}\n\n），未被拆断
-    first = content[content.find(b"data: "):]
+    first = content[content.find(b"data: ") :]
     first_event = first[: first.find(b"\n\n") + 2]
-    parsed = json.loads(first_event[len(b"data: "):].split(b"\n")[0])
+    parsed = json.loads(first_event[len(b"data: ") :].split(b"\n")[0])
     assert "choices" in parsed
     # 截断到 3
     entry = parsed["choices"][0]["logprobs"]["content"][0]
@@ -121,6 +124,7 @@ async def test_chat_stream_detection_full_topk_not_client_m(client_factory):
     def fn(scope, body):
         e = chat_top_entry(100, NI, -0.1, n_top=20, nan_at=5)
         return ("stream", [chat_stream_chunk("glm-4-7", e, delta_text=NI), None])
+
     client, fake, mw = client_factory(fn)
     await _collect_stream(
         client,
@@ -149,6 +153,7 @@ async def test_completions_stream_n3_choice_index_preserved(client_factory):
             None,
         ]
         return ("stream", chunks)
+
     client, fake, mw = client_factory(fn)
     await _collect_stream(
         client,
@@ -190,8 +195,13 @@ async def test_chat_stream_resolver_per_chunk_no_leak(client_factory):
     install_fake_resolver(
         mw,
         {
-            100: NI, 200: HAO,
-            10000: "甲", 10001: "乙", 10002: "丙", 10003: "丁", 10004: "戊",
+            100: NI,
+            200: HAO,
+            10000: "甲",
+            10001: "乙",
+            10002: "丙",
+            10003: "丁",
+            10004: "戊",
             10005: "己",
         },
     )
@@ -221,9 +231,7 @@ async def test_completions_stream_resolver_text_per_chunk(client_factory):
         return ("stream", chunks)
 
     client, fake, mw = client_factory(fn)
-    install_fake_resolver(
-        mw, {100: NI, 200: HAO, 10000: "甲", 10001: "乙", 10002: "丙", 10003: "丁", 10004: "戊"}
-    )
+    install_fake_resolver(mw, {100: NI, 200: HAO, 10000: "甲", 10001: "乙", 10002: "丙", 10003: "丁", 10004: "戊"})
     content = await _collect_stream(
         client,
         "/v1/completions",

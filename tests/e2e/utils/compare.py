@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 _DEFAULT_IGNORE = {"id", "created", "_id"}
 
 
@@ -11,7 +13,7 @@ def normalize_response(resp: dict) -> dict:
     return out
 
 
-def responses_equal(a: dict, b: dict, ignore_fields: set = None) -> bool:
+def responses_equal(a: dict, b: dict, ignore_fields: Optional[set] = None) -> bool:
     ignore = ignore_fields if ignore_fields is not None else _DEFAULT_IGNORE
     return _strip(a, ignore) == _strip(b, ignore)
 
@@ -180,11 +182,13 @@ def _canonical_logprobs(lp) -> list | None:
             if not isinstance(pos, dict):
                 out.append({"token": None, "logprob": None, "top_logprobs": []})
                 continue
-            out.append({
-                "token": pos.get("token"),
-                "logprob": pos.get("logprob"),
-                "top_logprobs": _canonical_top(pos.get("top_logprobs")),
-            })
+            out.append(
+                {
+                    "token": pos.get("token"),
+                    "logprob": pos.get("logprob"),
+                    "top_logprobs": _canonical_top(pos.get("top_logprobs")),
+                }
+            )
         return out or None
     tokens = lp.get("tokens")
     if isinstance(tokens, list):
@@ -192,11 +196,13 @@ def _canonical_logprobs(lp) -> list | None:
         tops = lp.get("top_logprobs") or []
         out = []
         for i in range(len(tokens)):
-            out.append({
-                "token": tokens[i],
-                "logprob": tlp[i] if i < len(tlp) else None,
-                "top_logprobs": _canonical_top(tops[i] if i < len(tops) else None),
-            })
+            out.append(
+                {
+                    "token": tokens[i],
+                    "logprob": tlp[i] if i < len(tlp) else None,
+                    "top_logprobs": _canonical_top(tops[i] if i < len(tops) else None),
+                }
+            )
         return out or None
     return None
 
@@ -254,8 +260,6 @@ def _cmp_shape(a: dict, b: dict, diffs: list) -> None:
                 diffs,
             )
 
-            
-
 
 def _cmp_usage(a: dict, b: dict, tail_delta: int, diffs: list) -> None:
     pa, pb = a["usage"]["prompt_tokens"], b["usage"]["prompt_tokens"]
@@ -279,7 +283,9 @@ def _cmp_choices(a: dict, b: dict, tail_char_budget: int, diffs: list) -> None:
             if len(pa["top_logprobs"]) != len(pb["top_logprobs"]):
                 _diff(
                     f"choices[{i}].logprobs[{p}].top_logprobs.length",
-                    len(pb["top_logprobs"]), len(pa["top_logprobs"]), diffs,
+                    len(pb["top_logprobs"]),
+                    len(pa["top_logprobs"]),
+                    diffs,
                 )
             if pa["token"] != pb["token"]:
                 _diff(f"choices[{i}].logprobs[{p}].token", pb["token"], pa["token"], diffs)

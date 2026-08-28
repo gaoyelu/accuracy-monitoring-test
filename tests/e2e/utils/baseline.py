@@ -83,8 +83,6 @@ class BaselineStore:
     def _read(self, interface: str, variant: str):
         path = self._path(interface, variant)
         if not os.path.exists(path):
-            raise FileNotFoundError(
-                f"baseline missing: {path} (run test_baseline_collection first)"
-            )
+            raise FileNotFoundError(f"baseline missing: {path} (run test_baseline_collection first)")
         with open(path, encoding="utf-8") as f:
             return json.load(f)

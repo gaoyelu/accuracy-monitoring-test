@@ -42,9 +42,7 @@ async def test_baseline_collection(no_mw_http, baseline_store):
 
     for variant, extra in COMPLETIONS_VARIANTS.items():
         events = []
-        async for event in no_mw_http.completions_stream(
-            prompt=completions_prompt, **kwargs, **extra
-        ):
+        async for event in no_mw_http.completions_stream(prompt=completions_prompt, **kwargs, **extra):
             events.append(event)
         assert events and events[-1].get("done"), f"completions stream v{variant}"
         baseline_store.store_completions_stream(variant, events)
