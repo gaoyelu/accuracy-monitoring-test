@@ -15,14 +15,13 @@ concurrency:
 
 jobs:
   resolve:
-    if: ${{ github.event.issue.pull_request != null && github.event.comment.user.type == 'User' && startsWith(github.event.comment.body, '/e2e') }}
+    if: ${{ github.event.issue.pull_request != null && startsWith(github.event.comment.body, '/e2e') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       authorized: ${{ steps.auth.outputs.authorized }}
       head_sha: ${{ steps.pr.outputs.head_sha }}
       pr_number: ${{ steps.pr.outputs.pr_number }}
-      tier: ${{ steps.tier.outputs.tier }}
     steps:
       - name: Resolve PR
         id: pr
@@ -39,22 +38,6 @@ jobs:
             echo "head_sha=${HEAD_SHA}"
             echo "pr_author=${PR_AUTHOR}"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Parse tier from comment
-        id: tier
-        env:
-          COMMENT: ${{ github.event.comment.body }}
-        run: |
-          set -eu
-          TIER="full"
-          if echo "$COMMENT" | grep -qi "/e2e nightly"; then
-            TIER="nightly"
-          elif echo "$COMMENT" | grep -qi "/e2e full"; then
-            TIER="full"
-          elif echo "$COMMENT" | grep -qi "/e2e light"; then
-            TIER="lightweight"
-          fi
-          echo "tier=${TIER}" >> "$GITHUB_OUTPUT"
 
       - name: Check authorization
         id: auth
@@ -83,22 +66,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ steps.pr.outputs.pr_number }}
         run: |
-          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e denied — only PR author or triage+ can trigger."
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e denied - only PR author or triage+ can trigger."
 
       - name: Notify trigger
         if: always() && steps.auth.outputs.authorized == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ steps.pr.outputs.pr_number }}
-          TIER: ${{ steps.tier.outputs.tier }}
         run: |
-          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e triggered: ${TIER} tier will run on PR head."
+          gh pr comment "$PR_NUM" --repo "${{ github.repository }}" --body "/e2e triggered: E2E full suite will start on self-hosted runner."
 
-  e2e:
+  e2e-full:
     needs: resolve
     if: always() && needs.resolve.outputs.authorized == 'true'
     uses: ./.github/workflows/_e2e_test.yaml
     with:
-      runner: '["ubuntu-latest"]'
-      tier: ${{ needs.resolve.outputs.tier }}
+      runner: '["self-hosted", "linux", "arm64", "e2e"]'
+      tier: full
       ref: ${{ needs.resolve.outputs.head_sha }}
